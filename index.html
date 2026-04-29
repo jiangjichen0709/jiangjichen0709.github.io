@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NUMCIDE · 零界猎杀</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Serif+SC:wght@300;400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:18px;}
+body{width:100vw;min-height:100vh;background:#05040f;color:#e8d9b5;font-family:'Noto Serif SC','SimSun','宋体',serif;overflow-x:hidden;}
+
+/* ══ 背景视频 ══ */
+.global-bg-video{position:fixed;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.55) saturate(0.75);}
+body.page-other .global-bg-video{filter:brightness(0.18) saturate(0.6);}
+.top-line{position:fixed;top:0;left:0;right:0;height:2px;z-index:999;background:linear-gradient(90deg,transparent,#6a4f2a,#c8a96e,#6a4f2a,transparent);}
+.credit{position:fixed;top:14px;right:3vw;z-index:1000;text-align:right;pointer-events:none;}
+.credit-cn{font-size:0.72rem;color:#e8d9b5;letter-spacing:0.12em;line-height:1.6;text-shadow:0 1px 8px rgba(0,0,0,0.9);}
+.credit-en{font-size:0.56rem;color:rgba(232,217,181,0.7);letter-spacing:0.1em;margin-top:1px;text-shadow:0 1px 8px rgba(0,0,0,0.9);}
+
+/* ══ 音乐播放器（左下角） ══ */
+.music-player{position:fixed;bottom:22px;left:22px;z-index:1000;display:flex;align-items:center;gap:10px;background:rgba(8,6,18,0.82);border:1px solid rgba(200,169,110,0.28);padding:8px 14px 8px 10px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));backdrop-filter:blur(6px);}
+.disc-wrap{width:36px;height:36px;position:relative;cursor:pointer;flex-shrink:0;}
+.disc{width:36px;height:36px;border-radius:50%;background:conic-gradient(#c8a96e 0deg,#3a2a0a 60deg,#c8a96e 120deg,#1a1008 180deg,#c8a96e 240deg,#2a1a06 300deg,#c8a96e 360deg);animation:spinDisc 4s linear infinite;box-shadow:0 0 10px rgba(200,169,110,0.3);}
+.disc.paused{animation-play-state:paused;}
+.disc-hole{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:#05040f;border:1px solid rgba(200,169,110,0.4);}
+@keyframes spinDisc{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.music-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.music-title{font-size:0.62rem;letter-spacing:0.18em;color:rgba(200,169,110,0.85);white-space:nowrap;}
+.volume-row{display:flex;align-items:center;gap:6px;}
+.vol-icon{font-size:0.68rem;color:rgba(200,169,110,0.6);cursor:pointer;user-select:none;}
+.vol-slider{-webkit-appearance:none;appearance:none;width:72px;height:3px;border-radius:2px;background:rgba(200,169,110,0.2);outline:none;cursor:pointer;}
+.vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#c8a96e;cursor:pointer;}
+.music-toggle{font-size:0.72rem;color:rgba(200,169,110,0.7);cursor:pointer;padding:2px 4px;user-select:none;flex-shrink:0;}
+.music-toggle:hover{color:#e8d9b5;}
+
+/* ★ 修改 ★ 移动端静音小按钮（桌面端隐藏） */
+.mobile-mute-btn{display:none;}
+
+/* ══ 用户栏（右下角） ══ */
+.user-bar{position:fixed;bottom:22px;right:22px;z-index:1000;display:none;align-items:center;gap:10px;background:rgba(8,6,18,0.82);border:1px solid rgba(200,169,110,0.22);padding:8px 16px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));backdrop-filter:blur(6px);}
+.user-bar.show{display:flex;}
+.user-bar-name{font-size:0.78rem;letter-spacing:0.15em;color:rgba(200,169,110,0.88);}
+.token-display{display:flex;align-items:center;gap:5px;cursor:pointer;padding:3px 9px;border:1px solid rgba(200,169,110,0.2);transition:border-color 0.3s;}
+.token-display:hover{border-color:rgba(200,169,110,0.5);}
+.token-icon{font-size:0.75rem;}
+.token-val{font-family:'Cinzel',serif;font-size:0.82rem;color:#ffd166;font-weight:700;}
+.user-bar-btn{font-family:'Noto Serif SC',serif;font-size:0.7rem;letter-spacing:0.18em;padding:3px 10px;background:transparent;color:rgba(232,217,181,0.5);border:1px solid rgba(200,169,110,0.2);cursor:pointer;transition:all 0.3s;}
+.user-bar-btn:hover{color:#e8d9b5;border-color:rgba(200,169,110,0.5);}
+
+/* ══ 弹窗通用 ══ */
+.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.78);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);overflow-y:auto;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:linear-gradient(160deg,rgba(14,11,28,0.97),rgba(8,6,18,0.99));border:1px solid rgba(200,169,110,0.35);padding:36px 38px;max-width:440px;width:90%;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));position:relative;text-align:center;flex-shrink:0;}
+.modal-box::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(200,169,110,0.35) transparent transparent;}
+.modal-title{font-family:'Cinzel',serif;font-size:1.15rem;color:#ffd166;letter-spacing:0.35em;margin-bottom:14px;}
+.modal-body{font-size:0.86rem;color:rgba(232,217,181,0.8);line-height:2;letter-spacing:0.1em;}
+.modal-close{margin-top:20px;padding:10px 28px;font-family:'Noto Serif SC',serif;font-size:0.88rem;letter-spacing:0.28em;background:transparent;color:rgba(200,169,110,0.75);border:1px solid rgba(200,169,110,0.3);cursor:pointer;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));transition:all 0.3s;}
+.modal-close:hover{color:#e8d9b5;border-color:rgba(200,169,110,0.6);}
+
+/* ══ 过渡 ══ */
+.page-transition{position:fixed;inset:0;z-index:800;background:#05040f;opacity:0;pointer-events:none;transition:opacity 0.4s ease;}
+.page-transition.active{opacity:1;pointer-events:all;}
+.suck-veil{position:fixed;inset:0;z-index:600;background:radial-gradient(circle at center,transparent 0%,#000 100%);opacity:0;pointer-events:none;transition:opacity 1.8s ease;}
+.suck-veil.active{opacity:1;}
+
+/* ══ 页面 ══ */
+.page{position:relative;z-index:10;display:none;min-height:100vh;opacity:0;transition:opacity 0.5s ease;}
+.page.active{display:flex;flex-direction:column;}
+.page.visible{opacity:1;}
+
+/* ══ Auth ══ */
+#page-auth{align-items:center;justify-content:center;min-height:100vh;padding:20px 8vw;}
+.auth-box{width:100%;max-width:460px;background:linear-gradient(160deg,rgba(14,11,28,0.92),rgba(8,6,18,0.96));border:1px solid rgba(200,169,110,0.35);padding:44px 40px;clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));position:relative;}
+.auth-box::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 15px 15px 0;border-color:transparent rgba(200,169,110,0.38) transparent transparent;}
+.auth-logo{text-align:center;margin-bottom:20px;}
+.auth-logo img{width:180px;filter:drop-shadow(0 0 18px rgba(200,169,110,0.2));}
+.auth-tabs{display:flex;border-bottom:1px solid rgba(200,169,110,0.18);margin-bottom:20px;}
+.auth-tab{flex:1;padding:10px 0;text-align:center;font-family:'Noto Serif SC',serif;font-size:0.9rem;letter-spacing:0.3em;color:rgba(232,217,181,0.45);background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.3s;margin-bottom:-1px;}
+.auth-tab.active{color:#d4b86a;border-bottom-color:#d4b86a;}
+.auth-form{display:flex;flex-direction:column;gap:13px;}
+.auth-form.hidden{display:none;}
+.auth-field{display:flex;flex-direction:column;gap:5px;}
+.auth-label{font-size:0.68rem;letter-spacing:0.4em;color:rgba(200,169,110,0.65);}
+.auth-input{padding:11px 15px;background:rgba(5,4,12,0.7);border:1px solid rgba(200,169,110,0.25);color:#e8d9b5;font-family:'Noto Serif SC',serif;font-size:0.93rem;outline:none;transition:border-color 0.3s;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));}
+.auth-input:focus{border-color:rgba(200,169,110,0.6);}
+.auth-input::placeholder{color:rgba(232,217,181,0.28);}
+.auth-hint{font-size:0.7rem;color:rgba(200,169,110,0.45);text-align:center;letter-spacing:0.12em;margin-top:2px;}
+.auth-btn{padding:13px 0;margin-top:4px;font-family:'Noto Serif SC',serif;font-size:0.98rem;letter-spacing:0.42em;background:linear-gradient(135deg,#c49a1a,#8b6914);color:#fff5d6;border:none;cursor:pointer;font-weight:700;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));transition:opacity 0.2s,transform 0.14s;}
+.auth-btn:hover{opacity:0.88;transform:translateY(-1px);}
+.auth-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.auth-msg{font-size:0.8rem;letter-spacing:0.12em;text-align:center;padding:7px;min-height:32px;line-height:1.7;}
+.auth-msg.error{color:#ff8fa3;}
+.auth-msg.success{color:#06d6a0;}
+
+/* ══ 首页 ══ */
+#page-home{align-items:center;justify-content:center;min-height:100vh;padding:0 8vw;}
+.home-content{display:flex;flex-direction:column;align-items:center;transition:opacity 0.9s ease;}
+.home-content.fade-out{opacity:0;}
+.home-logo-img{width:clamp(300px,42vw,700px);filter:drop-shadow(0 0 30px rgba(200,169,110,0.2));}
+.home-divider{width:clamp(180px,28vw,380px);height:1px;background:linear-gradient(90deg,transparent,rgba(200,169,110,0.55),transparent);margin:24px 0;}
+.home-menu{display:flex;flex-direction:column;align-items:center;gap:0;}
+.home-menu-btn{width:clamp(240px,24vw,380px);padding:15px 0;font-family:'Noto Serif SC','SimSun','宋体',serif;font-size:clamp(1rem,1.4vw,1.25rem);letter-spacing:0.55em;text-indent:0.55em;background:transparent;border:none;cursor:pointer;color:#e8d9b5;text-shadow:0 1px 10px rgba(0,0,0,0.95);position:relative;transition:color 0.3s,letter-spacing 0.3s;}
+.home-menu-btn:hover{color:#fff;letter-spacing:0.72em;}
+.home-menu-btn::before,.home-menu-btn::after{content:'';position:absolute;top:50%;transform:translateY(-50%);height:1px;width:0;background:rgba(200,169,110,0.65);transition:width 0.35s ease;}
+.home-menu-btn::before{right:calc(100% + 10px);}
+.home-menu-btn::after{left:calc(100% + 10px);}
+.home-menu-btn:hover::before,.home-menu-btn:hover::after{width:36px;}
+.home-menu-btn.primary{color:#f0d070;font-weight:700;font-size:clamp(1.05rem,1.5vw,1.3rem);}
+.home-menu-btn.ghost{color:rgba(232,217,181,0.72);font-size:clamp(0.9rem,1.2vw,1.08rem);}
+.menu-sep{width:clamp(90px,10vw,160px);height:1px;background:linear-gradient(90deg,transparent,rgba(200,169,110,0.22),transparent);margin:2px 0;}
+
+/* ══ 模式选择 ══ */
+#page-mode{align-items:center;justify-content:center;min-height:100vh;padding:60px 8vw;}
+.mode-content{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%;max-width:560px;}
+.mode-title-en{font-family:'Cinzel',serif;font-size:clamp(1rem,1.8vw,1.45rem);color:#d4b86a;letter-spacing:0.5em;text-align:center;line-height:1;}
+.mode-title-cn{font-family:'Noto Serif SC',serif;font-size:clamp(0.82rem,1.1vw,1rem);color:rgba(200,169,110,0.65);letter-spacing:0.5em;text-align:center;margin-bottom:6px;}
+.mode-card{width:100%;padding:24px 28px;background:linear-gradient(160deg,rgba(14,11,28,0.88),rgba(8,6,18,0.92));border:1px solid rgba(200,169,110,0.28);cursor:pointer;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));position:relative;transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;}
+.mode-card::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(200,169,110,0.28) transparent transparent;}
+.mode-card:hover{border-color:rgba(200,169,110,0.7);box-shadow:0 0 28px rgba(200,169,110,0.1);transform:translateY(-2px);}
+.mode-card-en{font-family:'Cinzel',serif;font-size:clamp(0.88rem,1.3vw,1.08rem);color:#d4b86a;letter-spacing:0.4em;line-height:1;margin-bottom:4px;}
+.mode-card-cn{font-family:'Noto Serif SC',serif;font-size:clamp(0.82rem,1.1vw,0.96rem);color:rgba(200,169,110,0.6);letter-spacing:0.28em;margin-bottom:10px;}
+.mode-card-desc{font-size:0.8rem;color:rgba(232,217,181,0.58);letter-spacing:0.12em;line-height:1.9;}
+.mode-back-btn{margin-top:6px;padding:10px 28px;font-family:'Noto Serif SC',serif;font-size:0.88rem;letter-spacing:0.28em;background:transparent;color:rgba(232,217,181,0.6);border:1px solid rgba(200,169,110,0.25);cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));transition:all 0.3s;}
+.mode-back-btn:hover{color:#e8d9b5;border-color:rgba(200,169,110,0.55);}
+
+/* ══ 通用内页 ══ */
+.inner-page{display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:56px 8vw 80px;}
+.page-header{display:flex;align-items:center;gap:22px;margin-bottom:36px;width:100%;max-width:960px;}
+.back-btn{padding:9px 22px;font-family:'Noto Serif SC',serif;font-size:0.95rem;letter-spacing:0.28em;background:transparent;color:rgba(232,217,181,0.85);border:1px solid rgba(200,169,110,0.35);cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));transition:all 0.3s;flex-shrink:0;}
+.back-btn:hover{color:#e8d9b5;border-color:rgba(200,169,110,0.65);}
+.page-title-block .ptb-en{font-family:'Cinzel',serif;font-size:clamp(1.3rem,2.1vw,2rem);color:#d4b86a;letter-spacing:0.35em;line-height:1.1;}
+.page-title-block .ptb-cn{font-size:clamp(0.68rem,0.9vw,0.82rem);color:rgba(232,217,181,0.55);letter-spacing:0.4em;margin-top:3px;}
+
+/* ══ 玩法说明 ══ */
+.rules-content{display:flex;flex-direction:column;gap:18px;width:100%;max-width:860px;}
+.rule-panel{background:linear-gradient(160deg,rgba(14,11,28,0.82),rgba(8,6,18,0.88));border:1px solid rgba(200,169,110,0.28);padding:22px 28px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));position:relative;}
+.rule-panel::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(200,169,110,0.32) transparent transparent;}
+.rule-title{font-family:'Cinzel',serif;font-size:clamp(0.84rem,1.1vw,0.98rem);color:#d4b86a;letter-spacing:0.4em;margin-bottom:11px;display:flex;align-items:center;gap:10px;}
+.rule-title::before{content:'▸';color:#ff6b8a;}
+.rule-text{font-size:clamp(0.88rem,1.1vw,1rem);color:rgba(232,217,181,0.85);line-height:2.1;font-weight:300;}
+.rule-text em{color:#ffd166;font-style:normal;font-weight:600;}
+.rule-text strong{color:#7ecfff;font-weight:600;}
+.card-table{width:100%;border-collapse:collapse;margin-top:11px;}
+.card-table th{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.28em;color:rgba(200,169,110,0.6);padding:6px 13px;border-bottom:1px solid rgba(200,169,110,0.18);text-align:left;}
+.card-table td{padding:8px 13px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:clamp(0.84rem,1vw,0.96rem);color:rgba(232,217,181,0.8);font-weight:300;line-height:1.8;}
+.card-table td:first-child{font-family:'Cinzel',serif;font-size:1.2rem;color:#ff6b8a;font-weight:700;text-align:center;width:52px;}
+.card-table em{color:#ffd166;font-style:normal;}
+
+/* ══ 世界观 ══ */
+.lore-container{width:100%;max-width:820px;display:flex;flex-direction:column;gap:18px;}
+.lore-section{background:linear-gradient(160deg,rgba(14,11,28,0.82),rgba(8,6,18,0.88));border:1px solid rgba(200,169,110,0.22);padding:26px 32px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));position:relative;}
+.lore-section::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(200,169,110,0.25) transparent transparent;}
+.lore-section-title{font-family:'Cinzel',serif;font-size:clamp(0.88rem,1.2vw,1.05rem);color:#d4b86a;letter-spacing:0.35em;margin-bottom:13px;display:flex;align-items:center;gap:8px;}
+.lore-section-title::before{content:'◈';color:rgba(200,169,110,0.5);font-size:0.7rem;}
+.lore-text{font-size:clamp(0.82rem,1vw,0.93rem);color:rgba(232,217,181,0.78);line-height:2.2;font-weight:300;text-align:justify;}
+.lore-placeholder{text-align:center;padding:48px 0;}
+.lore-placeholder .lore-icon{font-size:2.2rem;margin-bottom:16px;opacity:0.4;}
+.lore-placeholder .lore-main{font-family:'Cinzel',serif;font-size:clamp(1rem,1.8vw,1.4rem);color:rgba(232,217,181,0.8);letter-spacing:0.35em;margin-bottom:10px;}
+.lore-placeholder .lore-sub{font-size:clamp(0.8rem,1vw,0.92rem);color:rgba(232,217,181,0.45);letter-spacing:0.2em;line-height:2;}
+
+/* ══ 数据集 ══ */
+.codex-grid{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:100%;max-width:960px;}
+.codex-card{width:200px;background:linear-gradient(160deg,rgba(14,11,28,0.88),rgba(8,6,18,0.92));border:1px solid rgba(126,207,255,0.25);padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:11px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));position:relative;transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;cursor:pointer;}
+.codex-card::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(126,207,255,0.2) transparent transparent;}
+.codex-card:hover{border-color:rgba(126,207,255,0.7);box-shadow:0 0 28px rgba(126,207,255,0.1);transform:translateY(-4px);}
+.codex-card.locked{opacity:0.45;filter:grayscale(0.8);border-color:rgba(200,169,110,0.15);}
+.codex-card.locked:hover{border-color:rgba(200,169,110,0.3);box-shadow:none;transform:none;}
+.codex-card.locked::after{border-color:transparent rgba(200,169,110,0.12) transparent transparent;}
+.codex-card img{width:96px;height:96px;object-fit:cover;object-position:top;border-radius:50%;border:2px solid rgba(126,207,255,0.35);}
+.codex-card.locked img{border-color:rgba(200,169,110,0.2);}
+.codex-name{font-family:'Cinzel',serif;font-size:1.05rem;color:#7ecfff;letter-spacing:0.2em;}
+.codex-card.locked .codex-name{color:rgba(232,217,181,0.4);}
+.codex-sub{font-size:0.74rem;color:rgba(232,217,181,0.55);letter-spacing:0.22em;}
+.codex-status.unlocked{font-size:0.7rem;color:#06d6a0;border:1px solid rgba(6,214,160,0.35);padding:3px 11px;letter-spacing:0.18em;}
+.codex-price{font-size:0.72rem;color:#ffd166;letter-spacing:0.14em;}
+.codex-unlock-btn{padding:6px 16px;font-family:'Noto Serif SC',serif;font-size:0.72rem;letter-spacing:0.22em;background:linear-gradient(135deg,rgba(196,154,26,0.9),rgba(139,105,20,0.9));color:#fff5d6;border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));transition:opacity 0.2s;}
+.codex-unlock-btn:hover{opacity:0.82;}
+.codex-unlock-btn:disabled{opacity:0.35;cursor:not-allowed;}
+
+/* ══ 残像猎捕准备 ══ */
+.hunt-prep{display:flex;flex-direction:column;align-items:center;gap:22px;width:100%;max-width:820px;}
+.hunt-enemies-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;width:100%;}
+.hunt-enemy-slot{width:200px;background:linear-gradient(160deg,rgba(14,11,28,0.88),rgba(8,6,18,0.92));border:1px solid rgba(255,107,138,0.28);padding:20px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));position:relative;cursor:pointer;transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;}
+.hunt-enemy-slot::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 11px 11px 0;border-color:transparent rgba(255,107,138,0.24) transparent transparent;}
+.hunt-enemy-slot:hover{border-color:rgba(255,107,138,0.8);box-shadow:0 0 28px rgba(255,107,138,0.14);transform:translateY(-4px);}
+.hunt-enemy-slot img{width:90px;height:90px;object-fit:cover;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));border:1px solid rgba(255,107,138,0.35);}
+.hunt-enemy-name{font-family:'Cinzel',serif;font-size:1.05rem;color:#ff6b8a;letter-spacing:0.18em;}
+.hunt-enemy-sub{font-size:0.74rem;color:rgba(232,217,181,0.6);letter-spacing:0.2em;}
+.hunt-enemy-hp{font-size:0.74rem;color:rgba(200,169,110,0.7);letter-spacing:0.14em;}
+.hunt-enemy-hint{font-size:0.64rem;color:rgba(200,169,110,0.4);letter-spacing:0.16em;margin-top:2px;}
+.hunt-order-badge{position:absolute;top:8px;left:8px;font-family:'Cinzel',serif;font-size:0.62rem;color:#ff6b8a;background:rgba(255,107,138,0.12);border:1px solid rgba(255,107,138,0.3);padding:2px 7px;}
+.hunt-start-btn{padding:16px 44px;font-family:'Noto Serif SC',serif;font-size:1rem;letter-spacing:0.42em;background:linear-gradient(135deg,#c49a1a,#8b6914);color:#fff5d6;border:none;cursor:pointer;font-weight:700;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));transition:all 0.3s;}
+.hunt-start-btn:hover{opacity:0.88;transform:translateY(-2px);}
+
+/* ══ 选界行者 ══ */
+.hero-list{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:100%;max-width:960px;}
+.hero-card-sm{width:200px;background:linear-gradient(160deg,rgba(14,11,28,0.88),rgba(8,6,18,0.92));border:1px solid rgba(200,169,110,0.3);padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:11px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;position:relative;}
+.hero-card-sm::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 13px 13px 0;border-color:transparent rgba(200,169,110,0.28) transparent transparent;}
+.hero-card-sm:hover:not(.locked-hero){border-color:rgba(126,207,255,0.8);box-shadow:0 0 32px rgba(126,207,255,0.12);transform:translateY(-5px);}
+.hero-card-sm.locked-hero{opacity:0.42;cursor:not-allowed;filter:grayscale(0.7);}
+.hero-card-sm img{width:100px;height:100px;object-fit:cover;object-position:top;border-radius:50%;border:2px solid rgba(126,207,255,0.3);filter:saturate(0.85);transition:filter 0.3s,border-color 0.3s;}
+.hero-card-sm:hover:not(.locked-hero) img{filter:saturate(1.1);border-color:rgba(126,207,255,0.75);}
+.hc-name{font-family:'Cinzel',serif;font-size:1.2rem;color:#7ecfff;letter-spacing:0.2em;}
+.hc-sub{font-size:0.8rem;color:rgba(232,217,181,0.65);letter-spacing:0.22em;}
+.hc-divider{width:34px;height:1px;background:rgba(200,169,110,0.25);}
+.hc-skill-tag{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.38em;color:rgba(200,169,110,0.55);}
+.hc-trait{font-size:0.76rem;color:rgba(232,217,181,0.7);line-height:1.9;padding-left:11px;position:relative;font-weight:300;width:100%;}
+.hc-trait::before{content:'◆';position:absolute;left:0;font-size:0.36rem;top:5px;color:#c8a96e;}
+.hc-lock-tag{font-size:0.68rem;color:#ffd166;letter-spacing:0.16em;border:1px solid rgba(255,209,102,0.3);padding:2px 9px;}
+.locked-card{width:200px;min-height:240px;border:1px dashed rgba(200,169,110,0.14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));}
+.locked-card span{font-size:0.8rem;color:rgba(232,217,181,0.28);letter-spacing:0.22em;text-align:center;line-height:2.2;}
+
+/* ══ 选界行者时显示即将对战的数字生命 ══ */
+.next-enemy-bar{width:100%;max-width:960px;background:linear-gradient(160deg,rgba(60,10,20,0.7),rgba(40,5,15,0.8));border:1px solid rgba(255,107,138,0.22);padding:14px 22px;display:flex;align-items:center;gap:16px;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));margin-bottom:10px;}
+.neb-img{width:60px;height:60px;object-fit:cover;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));border:1px solid rgba(255,107,138,0.35);flex-shrink:0;}
+.neb-info{flex:1;}
+.neb-label{font-size:0.62rem;letter-spacing:0.38em;color:rgba(255,107,138,0.6);margin-bottom:3px;}
+.neb-name{font-family:'Cinzel',serif;font-size:1.05rem;color:#ff6b8a;letter-spacing:0.2em;}
+.neb-traits{font-size:0.72rem;color:rgba(232,217,181,0.6);line-height:1.9;margin-top:4px;}
+.neb-view-btn{font-family:'Noto Serif SC',serif;font-size:0.7rem;letter-spacing:0.2em;padding:5px 14px;background:transparent;color:rgba(255,107,138,0.7);border:1px solid rgba(255,107,138,0.25);cursor:pointer;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));transition:all 0.3s;flex-shrink:0;}
+.neb-view-btn:hover{color:#ff8fa3;border-color:rgba(255,107,138,0.55);}
+
+/* ══ 详情覆盖层 ══ */
+.detail-overlay{position:fixed;inset:0;z-index:200;display:flex;opacity:0;pointer-events:none;transition:opacity 0.5s ease;}
+.detail-overlay.show{opacity:1;pointer-events:all;}
+.detail-overlay .do-bg{position:absolute;inset:0;background:rgba(3,2,10,0.88);backdrop-filter:blur(6px);}
+.do-img-side{position:relative;width:52%;height:100%;overflow:hidden;flex-shrink:0;transform:translateX(-28px);transition:transform 0.6s cubic-bezier(0.2,0,0,1) 0.1s;}
+.detail-overlay.show .do-img-side{transform:translateX(0);}
+.do-img-side img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center top;}
+.do-img-side::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,rgba(3,2,10,0.95) 100%);}
+.do-info-side{flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 6vw 48px 40px;position:relative;z-index:1;transform:translateX(28px);transition:transform 0.6s cubic-bezier(0.2,0,0,1) 0.15s;overflow-y:auto;}
+.detail-overlay.show .do-info-side{transform:translateX(0);}
+.do-tag{font-family:'Cinzel',serif;font-size:0.74rem;letter-spacing:0.5em;color:rgba(232,217,181,0.55);margin-bottom:12px;}
+.do-name{font-family:'Cinzel',serif;font-size:clamp(2.1rem,3.5vw,3.3rem);font-weight:700;letter-spacing:0.1em;line-height:1;margin-bottom:6px;}
+.do-name.red{color:#ff6b8a;}
+.do-name.blue{color:#7ecfff;}
+.do-sub{font-size:clamp(0.9rem,1.35vw,1.18rem);color:rgba(232,217,181,0.6);letter-spacing:0.36em;margin-bottom:20px;}
+.do-divider{width:60px;height:1px;background:rgba(200,169,110,0.38);margin-bottom:18px;}
+.do-section-title{font-family:'Cinzel','Noto Serif SC',serif;font-size:0.72rem;letter-spacing:0.45em;color:rgba(232,217,181,0.58);margin-bottom:11px;}
+.do-trait{font-size:clamp(0.86rem,1.1vw,1rem);color:rgba(232,217,181,0.8);line-height:2.2;padding-left:14px;position:relative;font-weight:300;margin-bottom:3px;}
+.do-trait::before{content:'◆';position:absolute;left:0;font-size:0.42rem;top:7px;color:#c8a96e;}
+.do-hp{font-size:clamp(0.86rem,1.1vw,1rem);color:rgba(200,169,110,0.82);letter-spacing:0.2em;margin-bottom:22px;}
+.do-btn-row{display:flex;gap:12px;flex-wrap:wrap;}
+.do-btn-start{padding:15px 38px;font-family:'Noto Serif SC',serif;font-size:clamp(0.94rem,1.2vw,1.08rem);letter-spacing:0.36em;background:linear-gradient(135deg,#c49a1a,#8b6914);color:#fff5d6;border:none;cursor:pointer;font-weight:700;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));transition:all 0.3s;}
+.do-btn-start.blue-btn{background:linear-gradient(135deg,#1a6fc4,#0f4a8a);}
+.do-btn-back{padding:15px 26px;font-family:'Noto Serif SC',serif;font-size:clamp(0.86rem,1vw,0.96rem);letter-spacing:0.26em;background:transparent;color:rgba(232,217,181,0.68);border:1px solid rgba(200,169,110,0.28);cursor:pointer;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));transition:all 0.3s;}
+.do-btn-back:hover{color:#e8d9b5;border-color:rgba(200,169,110,0.62);}
+
+/* ══ 排行榜 ══ */
+.lb-tabs{display:flex;gap:10px;margin-bottom:22px;width:100%;max-width:960px;flex-wrap:wrap;}
+.lb-tab{flex:1;min-width:120px;padding:11px 0;text-align:center;font-family:'Noto Serif SC',serif;font-size:0.82rem;letter-spacing:0.22em;color:rgba(232,217,181,0.45);background:linear-gradient(160deg,rgba(14,11,28,0.7),rgba(8,6,18,0.8));border:1px solid rgba(200,169,110,0.18);cursor:pointer;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));transition:all 0.3s;}
+.lb-tab.active{color:#d4b86a;border-color:rgba(200,169,110,0.55);background:linear-gradient(160deg,rgba(30,22,50,0.9),rgba(18,12,36,0.95));}
+.lb-sub-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.lb-sub-tab{padding:7px 16px;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.28em;color:rgba(200,169,110,0.5);background:transparent;border:1px solid rgba(200,169,110,0.16);cursor:pointer;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));transition:all 0.3s;}
+.lb-sub-tab.active{color:#d4b86a;border-color:rgba(200,169,110,0.48);}
+.lb-panel{width:100%;max-width:960px;}
+.lb-table{width:100%;border-collapse:collapse;}
+.lb-table th{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.3em;color:rgba(200,169,110,0.55);padding:8px 12px;border-bottom:1px solid rgba(200,169,110,0.15);text-align:left;white-space:nowrap;}
+.lb-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.8rem;color:rgba(232,217,181,0.75);font-weight:300;line-height:1.7;vertical-align:middle;}
+.lb-rank{font-family:'Cinzel',serif;font-size:1.1rem;font-weight:700;text-align:center;width:40px;}
+.lb-rank.gold{color:#ffd166;}
+.lb-rank.silver{color:#c0c0c0;}
+.lb-rank.bronze{color:#cd7f32;}
+.lb-rank.normal{color:rgba(200,169,110,0.45);}
+.lb-score{font-family:'Cinzel',serif;font-size:1rem;font-weight:700;color:#d4b86a;}
+.lb-username{color:#7ecfff;font-weight:600;}
+.lb-tag{font-size:0.64rem;padding:2px 7px;border:1px solid;display:inline-block;margin:1px;}
+.lb-tag.hero{color:#7ecfff;border-color:rgba(126,207,255,0.28);}
+.lb-tag.enemy{color:#ff8fa3;border-color:rgba(255,107,138,0.28);}
+.lb-empty{text-align:center;padding:40px;font-size:0.82rem;color:rgba(232,217,181,0.35);letter-spacing:0.22em;}
+.lb-loading{text-align:center;padding:30px;font-size:0.78rem;color:rgba(200,169,110,0.5);letter-spacing:0.22em;}
+
+/* ══ 对战页 ══ */
+#page-battle{padding:0;height:100vh;overflow:hidden;}
+.battle-art-layer{position:fixed;inset:0;z-index:2;pointer-events:none;}
+.art-hero{position:absolute;left:-1vw;bottom:0;height:88vh;width:auto;object-fit:contain;object-position:bottom;filter:drop-shadow(0 0 36px rgba(126,207,255,0.18)) saturate(0.9);-webkit-mask-image:linear-gradient(to right,black 45%,transparent 88%),linear-gradient(to top,black 78%,transparent 100%);-webkit-mask-composite:intersect;mask-image:linear-gradient(to right,black 45%,transparent 88%),linear-gradient(to top,black 78%,transparent 100%);mask-composite:intersect;animation:heroFloat 4s ease-in-out infinite alternate;}
+.art-monster{position:absolute;right:-2vw;bottom:0;height:84vh;width:auto;object-fit:contain;object-position:bottom;filter:drop-shadow(0 0 46px rgba(255,80,80,0.16)) saturate(0.85) brightness(0.9);-webkit-mask-image:linear-gradient(to left,black 42%,transparent 86%),linear-gradient(to top,black 74%,transparent 100%);-webkit-mask-composite:intersect;mask-image:linear-gradient(to left,black 42%,transparent 86%),linear-gradient(to top,black 74%,transparent 100%);mask-composite:intersect;animation:monsterFloat 5s ease-in-out infinite alternate;}
+@keyframes heroFloat{0%{transform:translateY(0);}100%{transform:translateY(-11px);}}
+@keyframes monsterFloat{0%{transform:translateY(0) scale(1);}100%{transform:translateY(-8px) scale(1.013);}}
+.art-hero-glow{position:absolute;left:-4vw;bottom:0;width:38vw;height:78vh;background:radial-gradient(ellipse at 28% 92%,rgba(126,207,255,0.07) 0%,transparent 62%);z-index:1;}
+.art-monster-glow{position:absolute;right:-4vw;bottom:0;width:38vw;height:78vh;background:radial-gradient(ellipse at 72% 92%,rgba(255,80,80,0.06) 0%,transparent 62%);z-index:1;}
+.battle-layout{position:relative;z-index:10;display:grid;grid-template-columns:260px 1fr 260px;grid-template-rows:auto 1fr;gap:14px;padding:14px 5vw;height:100vh;max-width:1400px;margin:0 auto;align-items:start;}
+.battle-topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:8px 0 6px;border-bottom:1px solid rgba(200,169,110,0.14);}
+.battle-topbar-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.battle-back-btn{padding:6px 16px;font-family:'Noto Serif SC',serif;font-size:0.86rem;letter-spacing:0.2em;background:transparent;color:rgba(232,217,181,0.68);border:1px solid rgba(200,169,110,0.22);cursor:pointer;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));transition:all 0.3s;}
+.battle-back-btn:hover{color:#c8a96e;border-color:rgba(200,169,110,0.52);}
+.phase-badge{font-family:'Cinzel','Noto Serif SC',serif;font-size:0.8rem;font-weight:600;letter-spacing:0.18em;padding:5px 16px;clip-path:polygon(10px 0%,calc(100% - 10px) 0%,100% 50%,calc(100% - 10px) 100%,10px 100%,0% 50%);display:inline-flex;align-items:center;justify-content:center;}
+.phase-player{background:rgba(126,207,255,0.14);color:#7ecfff;border:1px solid rgba(126,207,255,0.32);}
+.phase-monster{background:rgba(255,107,138,0.14);color:#ff6b8a;border:1px solid rgba(255,107,138,0.32);}
+.phase-end{background:rgba(200,169,110,0.1);color:#c8a96e;border:1px solid rgba(200,169,110,0.3);}
+.round-text{font-family:'Noto Serif SC',serif;font-size:0.92rem;color:rgba(232,217,181,0.78);letter-spacing:0.14em;}
+.hunt-progress-badge{font-family:'Cinzel',serif;font-size:0.76rem;color:rgba(200,169,110,0.8);letter-spacing:0.2em;padding:3px 11px;border:1px solid rgba(200,169,110,0.22);}
+.side-panel{background:linear-gradient(160deg,rgba(12,10,26,0.82),rgba(7,5,16,0.88));border:1px solid rgba(200,169,110,0.26);padding:18px 15px;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));position:relative;overflow-y:auto;max-height:calc(100vh - 110px);}
+.side-panel::after{content:'';position:absolute;top:0;right:0;border-style:solid;border-width:0 11px 11px 0;border-color:transparent rgba(200,169,110,0.3) transparent transparent;}
+.side-panel::-webkit-scrollbar{width:3px;}
+.side-panel::-webkit-scrollbar-thumb{background:rgba(200,169,110,0.22);}
+.sp-name{font-family:'Noto Serif SC',serif;font-size:1.05rem;font-weight:600;letter-spacing:0.16em;margin-bottom:10px;}
+.sp-name.blue{color:#7ecfff;}
+.sp-name.red{color:#ff6b8a;}
+.hp-label-text{font-size:0.6rem;letter-spacing:0.32em;color:rgba(200,169,110,0.55);margin-bottom:4px;}
+.hp-bar-wrap{height:7px;background:rgba(255,255,255,0.06);margin-bottom:5px;}
+.hp-bar-fill{height:100%;transition:width 0.4s ease;}
+.hp-bar-fill.blue{background:linear-gradient(90deg,#2a5fa8,#7ecfff);}
+.hp-bar-fill.red{background:linear-gradient(90deg,#a82a2a,#ff6b8a);}
+.hp-text{font-family:'Noto Serif SC',serif;font-size:0.86rem;color:rgba(232,217,181,0.72);letter-spacing:0.1em;margin-bottom:8px;}
+.status-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;min-height:16px;}
+.s-tag{font-size:0.7rem;padding:2px 8px;letter-spacing:0.08em;background:rgba(200,169,110,0.09);border:1px solid rgba(200,169,110,0.26);color:rgba(200,169,110,0.88);}
+.s-tag.bad{background:rgba(255,107,138,0.09);border-color:rgba(255,107,138,0.28);color:#ff8fa3;}
+.s-tag.shield2{background:rgba(126,207,255,0.09);border-color:rgba(126,207,255,0.28);color:#90e0ef;}
+.s-tag.shield1{background:rgba(6,214,160,0.09);border-color:rgba(6,214,160,0.22);color:#b5e48c;}
+.s-tag.mw{background:rgba(30,80,255,0.13);border-color:rgba(60,120,255,0.42);color:#7eb8ff;}
+.s-tag.thread{background:rgba(200,50,200,0.13);border-color:rgba(200,50,200,0.38);color:#e0a0ff;}
+.skill-block{border-top:1px solid rgba(200,169,110,0.13);padding-top:12px;margin-top:3px;}
+.skill-block-title{font-family:'Cinzel','Noto Serif SC',serif;font-size:0.66rem;letter-spacing:0.42em;color:rgba(200,169,110,0.65);margin-bottom:8px;}
+.skill-cn{font-family:'Noto Serif SC',serif;font-size:1rem;color:#06d6a0;font-weight:600;margin-bottom:2px;}
+.skill-en{font-family:'Cinzel',serif;font-size:0.68rem;color:rgba(6,214,160,0.44);letter-spacing:0.16em;margin-bottom:6px;}
+.skill-desc{font-size:0.78rem;line-height:1.86;color:rgba(232,217,181,0.75);font-weight:300;}
+.skill-desc .t-mw{color:#4d9fff;font-weight:600;}
+.skill-active{margin-top:8px;font-size:0.76rem;background:rgba(200,169,110,0.09);border:1px solid rgba(200,169,110,0.24);padding:4px 8px;color:#ffd166;line-height:1.6;}
+.skill-mw{margin-top:6px;font-size:0.76rem;background:rgba(30,80,255,0.11);border:1px solid rgba(60,120,255,0.38);padding:4px 8px;color:#7eb8ff;line-height:1.6;}
+.trait-block{border-top:1px solid rgba(200,169,110,0.13);padding-top:12px;margin-top:3px;}
+.trait-block-title{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.38em;color:rgba(200,169,110,0.52);margin-bottom:8px;}
+.trait-line{font-family:'Noto Serif SC',serif;font-size:0.8rem;color:rgba(232,217,181,0.75);line-height:2;padding-left:12px;position:relative;font-weight:300;}
+.trait-line::before{content:'◆';position:absolute;left:0;font-size:0.36rem;top:6px;color:#c8a96e;}
+.center-panel{display:flex;flex-direction:column;gap:10px;overflow:hidden;max-height:calc(100vh - 110px);}
+.info-bar{background:linear-gradient(160deg,rgba(12,10,26,0.82),rgba(7,5,16,0.88));border:1px solid rgba(200,169,110,0.24);padding:10px 18px;display:flex;justify-content:space-around;align-items:center;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));}
+.info-item{text-align:center;}
+.info-val{font-family:'Cinzel',serif;font-size:1.5rem;font-weight:700;color:#d4b86a;line-height:1;}
+.info-lbl{font-family:'Noto Serif SC',serif;font-size:0.6rem;letter-spacing:0.26em;color:rgba(200,169,110,0.52);margin-top:3px;}
+.info-div{width:1px;height:32px;background:rgba(200,169,110,0.16);}
+.card7-tip{text-align:center;font-family:'Noto Serif SC',serif;font-size:0.8rem;color:rgba(255,183,3,0.82);letter-spacing:0.13em;padding:3px 0;}
+.hand-area{background:linear-gradient(160deg,rgba(12,10,26,0.82),rgba(7,5,16,0.88));border:1px solid rgba(200,169,110,0.24);padding:15px 13px 16px;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));}
+.hand-label{font-family:'Noto Serif SC',serif;font-size:0.92rem;letter-spacing:0.18em;color:rgba(232,217,181,0.82);font-weight:500;display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+.hand-label::before,.hand-label::after{content:'';flex:1;height:1px;background:rgba(200,169,110,0.12);}
+.hand-cards{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.card{width:82px;height:128px;background:linear-gradient(160deg,rgba(18,14,36,0.95),rgba(10,8,22,0.98));border:1px solid rgba(200,169,110,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));transition:transform 0.15s,border-color 0.15s,box-shadow 0.15s;user-select:none;position:relative;}
+.card:hover:not(.disabled){transform:translateY(-12px);box-shadow:0 12px 28px rgba(200,169,110,0.14);}
+.card.selected{border-color:#c8a96e;transform:translateY(-16px);box-shadow:0 0 20px rgba(200,169,110,0.26);background:linear-gradient(160deg,rgba(200,169,110,0.13),rgba(200,169,110,0.04));}
+.card.disabled{opacity:0.34;cursor:not-allowed;}
+.card.card7{border-color:rgba(255,183,3,0.58);}
+.card.card7.selected{border-color:#ffb703;box-shadow:0 0 18px rgba(255,183,3,0.42);}
+.card.mw-border{border-color:rgba(77,159,255,0.62)!important;box-shadow:0 0 14px rgba(77,159,255,0.18)!important;}
+.card-num{font-family:'Cinzel',serif;font-size:2.3rem;font-weight:700;color:#e8d9b5;line-height:1;}
+.card.selected .card-num{color:#c8a96e;}
+.card.card7 .card-num{color:#ffb703;}
+.card-eff{font-size:0.56rem;color:rgba(232,217,181,0.5);text-align:center;padding:0 3px;line-height:1.5;}
+.play-preview{background:rgba(7,5,16,0.78);border:1px solid rgba(200,169,110,0.17);padding:10px 16px;font-family:'Noto Serif SC',serif;font-size:0.86rem;color:rgba(232,217,181,0.65);letter-spacing:0.1em;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.preview-dmg{color:#d4b86a;font-family:'Cinzel',serif;font-size:1.25rem;font-weight:700;}
+.preview-tag{font-size:0.72rem;padding:2px 8px;background:rgba(200,169,110,0.09);border:1px solid rgba(200,169,110,0.2);color:rgba(200,169,110,0.85);}
+.action-row{display:flex;gap:8px;}
+.act-btn{flex:1;padding:14px 0;font-family:'Noto Serif SC',serif;font-size:clamp(0.9rem,1.1vw,1rem);letter-spacing:0.35em;border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));transition:opacity 0.2s,transform 0.14s;}
+.act-btn:hover:not(:disabled){opacity:0.88;transform:translateY(-2px);}
+.act-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;}
+.act-btn.attack{background:linear-gradient(135deg,#c49a1a,#8b6914);color:#fff5d6;font-weight:700;}
+.act-btn.skip{background:linear-gradient(135deg,rgba(38,32,68,0.92),rgba(22,18,48,0.95));color:rgba(232,217,181,0.72);border:1px solid rgba(200,169,110,0.18);}
+.act-btn.flee{background:linear-gradient(135deg,rgba(72,18,18,0.92),rgba(44,8,8,0.95));color:rgba(255,150,150,0.82);border:1px solid rgba(255,90,90,0.17);}
+.log-box{background:linear-gradient(160deg,rgba(10,8,20,0.88),rgba(6,4,14,0.92));border:1px solid rgba(200,169,110,0.17);padding:11px 15px;height:148px;overflow-y:auto;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));}
+.log-box::-webkit-scrollbar{width:3px;}
+.log-box::-webkit-scrollbar-thumb{background:rgba(200,169,110,0.2);}
+.log-title{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.42em;color:rgba(200,169,110,0.42);margin-bottom:6px;}
+.log-entry{font-family:'Noto Serif SC',serif;font-size:0.8rem;line-height:1.9;color:rgba(232,217,181,0.68);font-weight:300;}
+.log-entry.good{color:#4cc9f0;}
+.log-entry.warn{color:#ffd166;}
+.log-entry.important{color:#ff6b8a;font-weight:600;}
+.log-entry.system{color:rgba(232,217,181,0.4);font-style:italic;}
+.log-entry.mw{color:#4d9fff;font-weight:600;}
+
+/* ══ 结算 ══ */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:300;align-items:center;justify-content:center;overflow-y:auto;padding:20px;}
+.overlay.active{display:flex;}
+.result-win-box{background:linear-gradient(135deg,rgba(10,16,32,0.97),rgba(6,10,22,0.99));border:1px solid rgba(126,207,255,0.3);padding:36px 42px;width:90%;max-width:740px;clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));opacity:0;transform:scale(0.88) translateY(18px);transition:opacity 0.5s cubic-bezier(0.34,1.56,0.64,1),transform 0.5s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;}
+.result-win-box.show{opacity:1;transform:scale(1) translateY(0);}
+.rw-title{font-family:'Cinzel',serif;font-size:clamp(1.6rem,2.6vw,2.3rem);font-weight:700;color:#7ecfff;letter-spacing:0.28em;margin-bottom:4px;text-align:center;}
+.rw-sub{font-size:0.78rem;letter-spacing:0.46em;color:rgba(126,207,255,0.5);text-align:center;margin-bottom:22px;}
+.rw-body{display:flex;gap:20px;margin-bottom:20px;}
+.rw-left{background:rgba(7,5,16,0.7);border:1px solid rgba(200,169,110,0.2);padding:18px 20px;min-width:190px;flex-shrink:0;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));}
+.rw-stat-title{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.42em;color:rgba(200,169,110,0.52);margin-bottom:11px;}
+.rw-stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:0.88rem;}
+.rw-stat-lbl{color:rgba(200,169,110,0.6);font-family:'Noto Serif SC',serif;}
+.rw-stat-val{color:#e8d9b5;font-weight:600;}
+.rw-stat-val.green{color:#06d6a0;}
+.rw-stat-val.red{color:#ff6b8a;}
+.rw-right{flex:1;background:rgba(7,5,16,0.7);border:1px solid rgba(200,169,110,0.2);padding:18px 20px;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));}
+.score-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.score-lbl{font-family:'Noto Serif SC',serif;font-size:0.8rem;color:rgba(200,169,110,0.6);width:74px;flex-shrink:0;}
+.score-bar-wrap{flex:1;height:6px;background:rgba(255,255,255,0.05);overflow:hidden;}
+.score-bar{height:100%;transition:width 1.2s cubic-bezier(0.4,0,0.2,1);width:0%;}
+.bar-survive{background:linear-gradient(90deg,#06d6a0,#4cc9f0);}
+.bar-dmg{background:linear-gradient(90deg,#f72585,#ff9f1c);}
+.bar-precise{background:linear-gradient(90deg,#4361ee,#c77dff);}
+.bar-eff{background:linear-gradient(90deg,#ffd166,#ff9f1c);}
+.score-val{font-size:0.8rem;font-weight:700;width:30px;text-align:right;flex-shrink:0;}
+.rw-total{text-align:center;margin-bottom:14px;}
+.rw-total-lbl{font-size:0.68rem;letter-spacing:0.42em;color:rgba(200,169,110,0.46);margin-bottom:4px;}
+.rw-total-score{font-family:'Cinzel',serif;font-size:clamp(2.4rem,4vw,3.5rem);font-weight:700;background:linear-gradient(90deg,#7ecfff,#c77dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.rw-grade{font-family:'Noto Serif SC',serif;font-size:0.88rem;color:rgba(200,169,110,0.58);letter-spacing:0.26em;margin-top:6px;}
+.rw-token-reward{text-align:center;margin-bottom:12px;font-family:'Noto Serif SC',serif;font-size:0.9rem;color:#ffd166;letter-spacing:0.18em;}
+.result-lose-box{background:linear-gradient(135deg,rgba(22,8,8,0.97),rgba(14,4,4,0.99));border:1px solid rgba(255,107,138,0.3);padding:42px 50px;width:90%;max-width:480px;clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));text-align:center;opacity:0;transform:scale(0.88) translateY(18px);transition:opacity 0.5s cubic-bezier(0.34,1.56,0.64,1),transform 0.5s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;}
+.result-lose-box.show{opacity:1;transform:scale(1) translateY(0);}
+.rl-title{font-family:'Cinzel',serif;font-size:clamp(1.8rem,3vw,2.5rem);font-weight:700;color:#ff6b8a;letter-spacing:0.28em;margin-bottom:6px;}
+.rl-en{font-size:0.98rem;color:rgba(255,107,138,0.56);letter-spacing:0.46em;font-style:italic;margin-bottom:4px;}
+.rl-cn{font-family:'Noto Serif SC',serif;font-size:0.92rem;color:rgba(204,85,102,0.8);letter-spacing:0.3em;margin-bottom:20px;}
+.rl-divider{border:none;border-top:1px solid rgba(255,107,138,0.17);margin:12px 0;}
+.rl-stat{font-family:'Noto Serif SC',serif;font-size:0.9rem;color:rgba(232,217,181,0.65);margin-bottom:6px;line-height:1.8;}
+.rl-stat span{color:#ffaaaa;font-weight:600;}
+.rl-token-reward{font-family:'Noto Serif SC',serif;font-size:0.86rem;color:#ffd166;letter-spacing:0.16em;margin-top:8px;}
+.result-btn-row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+.result-btn{padding:13px 30px;font-family:'Noto Serif SC',serif;font-size:0.94rem;letter-spacing:0.3em;background:linear-gradient(135deg,rgba(30,24,60,0.95),rgba(18,14,40,0.98));color:rgba(232,217,181,0.88);border:1px solid rgba(200,169,110,0.28);cursor:pointer;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));transition:all 0.3s;}
+.result-btn:hover{border-color:rgba(200,169,110,0.58);color:#e8d9b5;}
+.save-tip{font-size:0.76rem;letter-spacing:0.16em;text-align:center;margin-top:6px;min-height:18px;}
+.save-tip.ok{color:#06d6a0;}
+.save-tip.err{color:#ff8fa3;}
+.save-tip.ing{color:rgba(200,169,110,0.62);}
+/* 残像猎捕总结算 */
+.hunt-result-box{background:linear-gradient(135deg,rgba(10,16,32,0.97),rgba(6,10,22,0.99));border:1px solid rgba(200,169,110,0.4);padding:36px 42px;width:90%;max-width:660px;clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));opacity:0;transform:scale(0.88);transition:opacity 0.5s cubic-bezier(0.34,1.56,0.64,1),transform 0.5s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;}
+.hunt-result-box.show{opacity:1;transform:scale(1);}
+.hr-title{font-family:'Cinzel',serif;font-size:clamp(1.4rem,2.3vw,2rem);font-weight:700;color:#d4b86a;letter-spacing:0.3em;text-align:center;margin-bottom:5px;}
+.hr-sub{font-size:0.76rem;letter-spacing:0.4em;color:rgba(200,169,110,0.48);text-align:center;margin-bottom:22px;}
+.hr-rounds{display:flex;flex-direction:column;gap:9px;margin-bottom:20px;}
+.hr-round-row{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;background:rgba(7,5,16,0.6);border:1px solid rgba(200,169,110,0.14);}
+.hr-round-label{font-size:0.76rem;color:rgba(200,169,110,0.65);letter-spacing:0.18em;}
+.hr-round-score{font-family:'Cinzel',serif;font-size:1.05rem;color:#d4b86a;font-weight:700;}
+.hr-round-result{font-size:0.7rem;padding:2px 8px;border:1px solid;}
+.hr-round-result.win{color:#06d6a0;border-color:rgba(6,214,160,0.3);}
+.hr-round-result.lose{color:#ff8fa3;border-color:rgba(255,107,138,0.3);}
+.hr-total-row{text-align:center;margin-bottom:14px;}
+.hr-total-lbl{font-size:0.68rem;letter-spacing:0.4em;color:rgba(200,169,110,0.46);margin-bottom:4px;}
+.hr-total-score{font-family:'Cinzel',serif;font-size:clamp(2rem,3.8vw,3.2rem);font-weight:700;color:#d4b86a;}
+
+/* ══ 浮动伤害 ══ */
+.dmg-float{position:fixed;font-family:'Cinzel',serif;font-size:2rem;font-weight:700;pointer-events:none;z-index:400;animation:floatUp 1.2s ease-out forwards;}
+.dmg-float.player{color:#ff6b8a;text-shadow:0 0 13px rgba(255,107,138,0.7);}
+.dmg-float.monster{color:#c8a96e;text-shadow:0 0 13px rgba(200,169,110,0.5);}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}60%{opacity:1;transform:translateY(-50px) scale(1.15);}100%{opacity:0;transform:translateY(-92px) scale(0.88);}}
+@keyframes hitFlash{0%,100%{filter:brightness(1);}30%{filter:brightness(2.8) saturate(2);}60%{filter:brightness(0.7);}}
+.hit-anim{animation:hitFlash 0.44s ease;}
+
+/* ══ 魔武 ══ */
+#mw-canvas{position:fixed;inset:0;pointer-events:none;z-index:50;display:none;}
+.mw-popup{position:fixed;inset:0;z-index:450;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;}
+.mw-popup.show{animation:mwPopAnim 2.8s ease forwards;}
+@keyframes mwPopAnim{0%{opacity:0;transform:scale(0.7);}15%{opacity:1;transform:scale(1.08);}25%{transform:scale(1);}70%{opacity:1;}100%{opacity:0;transform:scale(1.05);}}
+.mw-popup-main{font-family:'Cinzel',serif;font-size:clamp(2.2rem,4.5vw,4rem);font-weight:700;color:#4d9fff;text-shadow:0 0 38px rgba(77,159,255,0.85),0 0 76px rgba(77,159,255,0.42);letter-spacing:0.14em;text-align:center;}
+.mw-popup-sub{font-family:'Noto Serif SC',serif;font-size:clamp(0.86rem,1.35vw,1.15rem);color:rgba(126,207,255,0.82);letter-spacing:0.36em;margin-top:10px;}
+.mw-popup-bg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(30,80,200,0.18) 0%,transparent 65%);}
+.mw-attack-flash{position:fixed;inset:0;pointer-events:none;z-index:60;background:radial-gradient(ellipse at center,rgba(77,159,255,0.36) 0%,transparent 70%);opacity:0;animation:mwFlash 0.65s ease-out forwards;}
+@keyframes mwFlash{0%{opacity:0;transform:scale(0.8);}20%{opacity:1;transform:scale(1.05);}100%{opacity:0;transform:scale(1.2);}}
+.mw-strike{position:fixed;pointer-events:none;z-index:61;width:2px;background:linear-gradient(180deg,transparent,#4d9fff,#fff,#4d9fff,transparent);opacity:0;animation:mwStrike 0.5s ease-out forwards;transform-origin:top center;}
+@keyframes mwStrike{0%{opacity:0;transform:scaleY(0) rotate(var(--a));}25%{opacity:1;transform:scaleY(1) rotate(var(--a));}100%{opacity:0;transform:scaleY(1.1) rotate(var(--a));}}
+
+/* ══ 移动端 ══ */
+@media(max-width:768px){
+  /* ★ 修改1：隐藏背景视频，改用背景图片 ★ */
+  .global-bg-video{display:none;}
+  body{
+    background-image:url('https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/Dtjb/3840X2160/%E7%BD%91%E7%AB%99%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF_compressed.png');
+    background-size:cover;
+    background-position:center center;
+    background-attachment:fixed;
+    background-repeat:no-repeat;
+  }
+
+  /* ★ 修改2：隐藏完整音乐控制栏 ★ */
+  .music-player{display:none !important;}
+
+  /* ★ 修改3：显示移动端静音小按钮，放在左上角不遮挡任何按钮 ★ */
+  .mobile-mute-btn{
+    display:flex;
+    position:fixed;
+    top:14px;
+    left:14px;
+    z-index:1000;
+    width:36px;
+    height:36px;
+    align-items:center;
+    justify-content:center;
+    font-size:1.1rem;
+    background:rgba(8,6,18,0.75);
+    border:1px solid rgba(200,169,110,0.3);
+    border-radius:50%;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  html{font-size:15px;}
+  #page-home,#page-mode,#page-auth{padding:20px 5vw;}
+  .home-logo-img{width:80vw;}
+  .home-menu-btn{width:80vw;font-size:1.05rem;padding:13px 0;}
+  .home-menu-btn.primary{font-size:1.1rem;}
+  .credit{display:none;}
+  /* 原有 .music-player 移动端样式已被上方 display:none 替代，删除旧的冲突规则 */
+  .disc-wrap,.disc{width:28px;height:28px;}
+  .vol-slider{width:54px;}
+  .user-bar{bottom:12px;right:50%;transform:translateX(50%);padding:6px 12px;gap:8px;}
+  .user-bar-name{font-size:0.7rem;}
+  .token-val{font-size:0.76rem;}
+  .inner-page{padding:44px 4vw 80px;}
+  .page-header{margin-bottom:20px;gap:14px;}
+  .back-btn{padding:7px 14px;font-size:0.86rem;}
+  .ptb-en{font-size:1.15rem!important;}
+  .hero-list{gap:12px;}
+  .hero-card-sm{width:44vw;padding:18px 12px;gap:8px;}
+  .hero-card-sm img{width:80px;height:80px;}
+  .locked-card{width:44vw;min-height:180px;}
+  .hc-name{font-size:1rem;}
+  .codex-grid{gap:12px;}
+  .codex-card{width:44vw;padding:18px 12px;gap:8px;}
+  .codex-card img{width:78px;height:78px;}
+  .codex-name{font-size:0.9rem;}
+  .hunt-enemies-row{gap:12px;}
+  .hunt-enemy-slot{width:44vw;padding:16px 10px;}
+  .hunt-enemy-slot img{width:72px;height:72px;}
+  .detail-overlay{flex-direction:column;}
+  .do-img-side{width:100%;height:34vh;transform:translateY(-20px);transition:transform 0.5s cubic-bezier(0.2,0,0,1) 0.1s;}
+  .detail-overlay.show .do-img-side{transform:translateY(0);}
+  .do-img-side::after{background:linear-gradient(to bottom,transparent 50%,rgba(3,2,10,0.96) 100%);}
+  .do-info-side{padding:14px 5vw 20px;transform:translateY(20px);transition:transform 0.5s cubic-bezier(0.2,0,0,1) 0.15s;overflow-y:auto;max-height:66vh;}
+  .detail-overlay.show .do-info-side{transform:translateY(0);}
+  .do-name{font-size:1.75rem;}
+  .do-btn-start,.do-btn-back{padding:11px 18px;font-size:0.86rem;}
+  .next-enemy-bar{padding:10px 14px;gap:10px;}
+  .neb-img{width:50px;height:50px;}
+  .mode-content{gap:12px;}
+  .mode-card{padding:18px 20px;}
+  .lb-tabs{gap:6px;}
+  .lb-tab{font-size:0.72rem;padding:9px 0;min-width:80px;}
+  .lb-table th{font-size:0.58rem;padding:6px 8px;}
+  .lb-table td{padding:8px 8px;font-size:0.72rem;}
+  #page-battle{height:100vh;overflow:hidden;}
+  .battle-art-layer{z-index:1;}
+  .art-hero{left:-8vw;bottom:0;height:52vh;opacity:0.18;filter:saturate(0.7) blur(1px);animation:none;}
+  .art-monster{right:-8vw;bottom:0;height:52vh;opacity:0.16;filter:saturate(0.7) blur(1px);animation:none;}
+  .art-hero-glow,.art-monster-glow{display:none;}
+  .battle-layout{display:flex;flex-direction:column;gap:4px;padding:5px 3vw 4px;height:100vh;overflow:hidden;}
+  .battle-topbar{padding:4px 0;flex-shrink:0;}
+  .battle-back-btn{padding:4px 10px;font-size:0.72rem;}
+  .phase-badge{font-size:0.64rem;padding:3px 10px;}
+  .round-text{font-size:0.74rem;}
+  .mobile-panels-row{display:flex;gap:4px;flex-shrink:0;}
+  .side-panel{flex:1;padding:7px 8px;max-height:none;clip-path:none;overflow:hidden;}
+  .side-panel::after{display:none;}
+  .sp-name{font-size:0.78rem;margin-bottom:4px;}
+  .hp-label-text{display:none;}
+  .hp-bar-wrap{height:4px;margin-bottom:3px;}
+  .hp-text{font-size:0.66rem;margin-bottom:3px;}
+  .status-tags{gap:2px;margin-bottom:3px;min-height:0;}
+  .s-tag{font-size:0.56rem;padding:1px 5px;}
+  .skill-block,.trait-block{display:none;}
+  .center-panel{flex:1;gap:4px;overflow:hidden;max-height:none;}
+  .info-bar{padding:5px 8px;clip-path:none;}
+  .info-val{font-size:1.1rem;}
+  .info-lbl{font-size:0.52rem;margin-top:2px;}
+  .info-div{height:22px;}
+  .card7-tip{font-size:0.66rem;padding:2px 0;}
+  .hand-area{padding:7px 6px 8px;clip-path:none;flex-shrink:0;}
+  .hand-label{font-size:0.64rem;margin-bottom:6px;}
+  .hand-cards{gap:4px;}
+  .card{width:48px;height:76px;clip-path:none;border-radius:3px;gap:2px;}
+  .card:hover:not(.disabled){transform:translateY(-7px);}
+  .card.selected{transform:translateY(-9px);}
+  .card-num{font-size:1.6rem;}
+  .card-eff{font-size:0.38rem;line-height:1.3;}
+  .play-preview{padding:5px 9px;font-size:0.74rem;clip-path:none;gap:4px;flex-shrink:0;}
+  .preview-dmg{font-size:0.96rem;}
+  .preview-tag{font-size:0.6rem;padding:1px 5px;}
+  .action-row{gap:4px;flex-shrink:0;}
+  .act-btn{padding:8px 0;font-size:0.76rem;letter-spacing:0.16em;clip-path:none;border-radius:3px;}
+  .log-box{height:0;flex:1;clip-path:none;padding:6px 8px;min-height:40px;}
+  .log-title{font-size:0.48rem;margin-bottom:3px;}
+  .log-entry{font-size:0.66rem;line-height:1.6;}
+  .result-win-box,.hunt-result-box{padding:18px 14px;}
+  .rw-body{flex-direction:column;gap:11px;}
+  .result-lose-box{padding:26px 16px;}
+  .rl-title{font-size:1.65rem;}
+  .rw-title,.hr-title{font-size:1.4rem;}
+  .auth-box{padding:26px 18px;}
+  .lore-section{padding:18px 20px;}
+}
+@media(max-width:375px){
+  .card{width:42px;height:68px;}
+  .card-num{font-size:1.4rem;}
+  .act-btn{font-size:0.7rem;padding:7px 0;}
+  .info-val{font-size:0.98rem;}
+  .codex-card,.hero-card-sm,.hunt-enemy-slot{width:46vw;}
+}
+</style>
+</head>
+<body>
+
+<video class="global-bg-video" id="global-bg-video" autoplay loop muted playsinline>
+  <source src="https://videos.tuchuangyun.top/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/89Mf/%E8%83%8C%E6%99%AF.mp4" type="video/mp4">
+</video>
+<div class="top-line"></div>
+<div class="page-transition" id="page-transition"></div>
+<div class="suck-veil" id="suck-veil"></div>
+<div class="credit">
+  <div class="credit-cn">本项目由西南财经大学 姜霁宸 设计与开发</div>
+  <div class="credit-en">Designed &amp; Developed by Jiang Jichen | SWUFE</div>
+</div>
+
+<!-- 音乐播放器 -->
+<div class="music-player">
+  <div class="disc-wrap" onclick="toggleMusic()">
+    <div class="disc" id="disc"></div>
+    <div class="disc-hole"></div>
+  </div>
+  <div class="music-info">
+    <div class="music-title" id="music-title">零界猎杀 · 主题曲</div>
+    <div class="volume-row">
+      <span class="vol-icon" onclick="toggleMute()">🔊</span>
+      <input class="vol-slider" id="vol-slider" type="range" min="0" max="100" value="60" oninput="setVolume(this.value)">
+    </div>
+  </div>
+  <span class="music-toggle" id="music-toggle-btn" onclick="toggleMusic()">⏸</span>
+</div>
+
+<!-- ★ 新增：移动端静音小按钮（左上角，不遮挡任何游戏按钮） ★ -->
+<div class="mobile-mute-btn" id="mobile-mute-btn" onclick="toggleMute()">🔊</div>
+
+<audio id="bgm-home" loop src="https://audio.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/8zwJ/%E8%83%8C%E6%99%AF%E9%9F%B3%E4%B9%90.mp3"></audio>
+<audio id="bgm-battle" loop src="https://audio.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/U1j8/%E6%88%98%E6%96%97%E9%9F%B3%E4%B9%901.mp3"></audio>
+
+<!-- 用户栏（右下角） -->
+<div class="user-bar" id="user-bar">
+  <span class="user-bar-name" id="user-bar-name">—</span>
+  <div class="token-display" onclick="showTokenInfo()">
+    <span class="token-icon">◈</span>
+    <span class="token-val" id="token-display-val">0</span>
+    <span style="font-size:0.66rem;color:rgba(200,169,110,0.55);letter-spacing:0.1em">TOKEN</span>
+  </div>
+  <button class="user-bar-btn" onclick="doLogout()">退出</button>
+</div>
+
+<!-- Token 弹窗 -->
+<div class="modal-overlay" id="token-modal" onclick="hideTokenInfo()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">◈ TOKEN</div>
+    <div class="modal-body">Token是智能体理解与输出的最小单位，在世界进入算力极限时代后取代贵金属成为了更流行的硬通货。你可以从对战中获得Token，并用来解锁更多界行者。</div>
+    <button class="modal-close" onclick="hideTokenInfo()">知道了</button>
+  </div>
+</div>
+
+<!-- 魔武 -->
+<div class="mw-popup" id="mw-popup">
+  <div class="mw-popup-bg"></div>
+  <div class="mw-popup-main">ALL COMES BACK!</div>
+  <div class="mw-popup-sub">你已进入魔武状态</div>
+</div>
+<canvas id="mw-canvas"></canvas>
+
+<!-- 结算覆盖层 -->
+<div class="overlay" id="overlay">
+  <div class="result-win-box" id="result-win-box" style="display:none">
+    <div class="rw-title">🏆 VICTORY</div>
+    <div class="rw-sub">BATTLE COMPLETE</div>
+    <div class="rw-body">
+      <div class="rw-left">
+        <div class="rw-stat-title">— STATS —</div>
+        <div class="rw-stat-row"><span class="rw-stat-lbl">使用回合</span><span class="rw-stat-val" id="rw-rounds">—</span></div>
+        <div class="rw-stat-row"><span class="rw-stat-lbl">剩余血量</span><span class="rw-stat-val green" id="rw-hp">—</span></div>
+        <div class="rw-stat-row"><span class="rw-stat-lbl">最大单次伤害</span><span class="rw-stat-val red" id="rw-maxdmg">—</span></div>
+        <div style="border-top:1px solid rgba(200,169,110,0.13);padding-top:8px;margin-top:6px;font-size:0.84rem;color:rgba(200,169,110,0.62);" id="rw-desc">—</div>
+      </div>
+      <div class="rw-right">
+        <div class="rw-stat-title">— SCORE —</div>
+        <div class="score-row"><span class="score-lbl">生存</span><div class="score-bar-wrap"><div class="score-bar bar-survive" id="bar-survive"></div></div><span class="score-val" id="val-survive" style="color:#06d6a0">0</span></div>
+        <div class="score-row"><span class="score-lbl">平均伤害</span><div class="score-bar-wrap"><div class="score-bar bar-dmg" id="bar-dmg"></div></div><span class="score-val" id="val-dmg" style="color:#ff9f1c">0</span></div>
+        <div class="score-row"><span class="score-lbl">精准击杀</span><div class="score-bar-wrap"><div class="score-bar bar-precise" id="bar-precise"></div></div><span class="score-val" id="val-precise" style="color:#c77dff">0</span></div>
+        <div class="score-row"><span class="score-lbl">承伤效率</span><div class="score-bar-wrap"><div class="score-bar bar-eff" id="bar-eff"></div></div><span class="score-val" id="val-eff" style="color:#ffd166">0</span></div>
+      </div>
+    </div>
+    <div class="rw-total">
+      <div class="rw-total-lbl">TOTAL SCORE</div>
+      <div class="rw-total-score" id="rw-total">0.00</div>
+      <div class="rw-grade" id="rw-grade">—</div>
+    </div>
+    <div class="rw-token-reward" id="rw-token-reward"></div>
+    <div class="save-tip" id="save-tip-win"></div>
+    <div class="result-btn-row"><button class="result-btn" id="btn-next-or-back" onclick="handleNextOrBack()">继续</button></div>
+  </div>
+  <div class="result-lose-box" id="result-lose-box" style="display:none">
+    <div class="rl-title">💀 DEFEATED</div>
+    <div class="rl-en">DO NOT FALL HERE.</div>
+    <div class="rl-cn">不要在这里倒下。</div>
+    <hr class="rl-divider">
+    <div class="rl-stat">使用回合：<span id="rl-rounds">—</span></div>
+    <div class="rl-stat">数字生命剩余血量：<span id="rl-mhp">—</span></div>
+    <div class="rl-stat">界行者：<span id="rl-hero">—</span> | 数字生命：<span id="rl-monster">—</span></div>
+    <div class="rl-token-reward" id="rl-token-reward"></div>
+    <div class="save-tip" id="save-tip-lose"></div>
+    <div class="result-btn-row"><button class="result-btn" onclick="restartGame()">↺ 返回</button></div>
+  </div>
+  <div class="hunt-result-box" id="hunt-result-box" style="display:none">
+    <div class="hr-title">◈ 行动结束</div>
+    <div class="hr-sub">HUNT COMPLETE</div>
+    <div class="hr-rounds" id="hr-rounds-list"></div>
+    <div class="hr-total-row">
+      <div class="hr-total-lbl">TOTAL SCORE</div>
+      <div class="hr-total-score" id="hr-total-score">0.00</div>
+    </div>
+    <div class="rw-token-reward" id="hr-token-reward"></div>
+    <div class="save-tip" id="save-tip-hunt"></div>
+    <div class="result-btn-row"><button class="result-btn" onclick="restartGame()">↺ 返回主菜单</button></div>
+  </div>
+</div>
+
+<!-- ══ Auth ══ -->
+<div class="page" id="page-auth">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px 8vw;">
+    <div class="auth-box">
+      <div class="auth-logo"><img src="https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/Jxb2/1024X723/%E5%9B%BE%E7%89%87%E6%8A%A0%E5%9B%BE%E7%94%9F%E6%88%90%E9%80%8F%E6%98%8E%E8%83%8C%E6%99%AFPNG.png" alt="NUMCIDE"></div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">登 录</button>
+        <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">注 册</button>
+      </div>
+      <div class="auth-form" id="form-login">
+        <div class="auth-field"><label class="auth-label">EMAIL · 邮箱</label><input class="auth-input" type="email" id="login-email" placeholder="your@email.com"></div>
+        <div class="auth-field"><label class="auth-label">PASSWORD · 密码</label><input class="auth-input" type="password" id="login-password" placeholder="••••••••"></div>
+        <div class="auth-hint">如忘记密码请及时联系开发者</div>
+        <div class="auth-msg" id="login-msg"></div>
+        <button class="auth-btn" id="login-btn" onclick="doLogin()">进 入 游 戏</button>
+      </div>
+      <div class="auth-form hidden" id="form-register">
+        <div class="auth-field"><label class="auth-label">USERNAME · 玩家昵称</label><input class="auth-input" type="text" id="reg-username" placeholder="你的游戏昵称"></div>
+        <div class="auth-field"><label class="auth-label">EMAIL · 邮箱</label><input class="auth-input" type="email" id="reg-email" placeholder="your@email.com"></div>
+        <div class="auth-field"><label class="auth-label">PASSWORD · 密码（至少6位）</label><input class="auth-input" type="password" id="reg-password" placeholder="••••••••"></div>
+        <div class="auth-msg" id="reg-msg"></div>
+        <button class="auth-btn" id="reg-btn" onclick="doRegister()">创 建 账 号</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 首页 ══ -->
+<div class="page" id="page-home">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:0 8vw;">
+    <div class="home-content" id="home-content">
+      <img class="home-logo-img" src="https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/Jxb2/1024X723/%E5%9B%BE%E7%89%87%E6%8A%A0%E5%9B%BE%E7%94%9F%E6%88%90%E9%80%8F%E6%98%8E%E8%83%8C%E6%99%AFPNG.png" alt="NUMCIDE">
+      <div class="home-divider"></div>
+      <div class="home-menu">
+        <button class="home-menu-btn primary" onclick="goToMode()">开 始 游 戏</button>
+        <div class="menu-sep"></div>
+        <button class="home-menu-btn" onclick="navTo('page-rules')">玩 法 说 明</button>
+        <div class="menu-sep"></div>
+        <button class="home-menu-btn ghost" onclick="navTo('page-lore')">了 解 世 界 观</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 模式选择 ══ -->
+<div class="page" id="page-mode">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:60px 8vw;">
+    <div class="mode-content">
+      <div class="mode-title-en">SELECT MODE</div>
+      <div class="mode-title-cn">选择模式</div>
+      <div class="mode-card" onclick="navTo('page-story')">
+        <div class="mode-card-en">STORY MODE</div>
+        <div class="mode-card-cn">剧情模式</div>
+        <div class="mode-card-desc">进入零界之门，揭开数字生命存在的真相并为人类寻找突破算力极限的新算法。</div>
+      </div>
+      <div class="mode-card" onclick="startHuntMode()">
+        <div class="mode-card-en">PHANTOM HUNT</div>
+        <div class="mode-card-cn">残像猎捕</div>
+        <div class="mode-card-desc">与在零界遇见过的随机数字生命对战，获取Token并取得更高的分数。</div>
+      </div>
+      <div class="mode-card" onclick="navTo('page-codex')">
+        <div class="mode-card-en">DATA SET</div>
+        <div class="mode-card-cn">数据集</div>
+        <div class="mode-card-desc">查看你已解锁与未解锁的界行者，使用Token开启更多可能。</div>
+      </div>
+      <div class="mode-card" onclick="navTo('page-leaderboard')">
+        <div class="mode-card-en">LEADERBOARD</div>
+        <div class="mode-card-cn">排行榜</div>
+        <div class="mode-card-desc">查看行动分数榜、界行者战力榜与猎杀榜，挑战顶尖玩家的记录。</div>
+      </div>
+      <button class="mode-back-btn" onclick="navTo('page-home')">← 返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 剧情模式 ══ -->
+<div class="page" id="page-story">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-mode')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">STORY MODE</div><div class="ptb-cn">剧情模式</div></div>
+    </div>
+    <div style="width:100%;max-width:560px;background:linear-gradient(160deg,rgba(14,11,28,0.82),rgba(8,6,18,0.88));border:1px solid rgba(200,169,110,0.28);padding:52px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));text-align:center;position:relative;">
+      <div style="font-size:2.2rem;margin-bottom:16px;opacity:0.4;">◈</div>
+      <div style="font-family:'Cinzel',serif;font-size:clamp(1rem,1.7vw,1.35rem);color:rgba(232,217,181,0.85);letter-spacing:0.35em;margin-bottom:11px;">剧情正在推进中</div>
+      <div style="font-size:clamp(0.8rem,1vw,0.9rem);color:rgba(232,217,181,0.48);letter-spacing:0.2em;line-height:2;">STORY UNDER CONSTRUCTION<br>请耐心等待后续推出……</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 数据集 ══ -->
+<div class="page" id="page-codex">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-mode')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">DATA SET</div><div class="ptb-cn">界行者数据集</div></div>
+    </div>
+    <div class="codex-grid" id="codex-grid"></div>
+  </div>
+</div>
+
+<!-- 界行者详情（数据集用） -->
+<div class="detail-overlay" id="codex-detail">
+  <div class="do-bg" onclick="closeCodexDetail()"></div>
+  <div class="do-img-side"><img id="cd-img" src="" alt=""></div>
+  <div class="do-info-side">
+    <div class="do-tag" id="cd-tag">WALKER · 01</div>
+    <div class="do-name blue" id="cd-name">—</div>
+    <div class="do-sub" id="cd-sub">—</div>
+    <div class="do-divider"></div>
+    <div class="do-section-title">PASSIVE SKILL · 被动技能</div>
+    <div id="cd-traits"></div>
+    <div class="do-btn-row" style="margin-top:24px;" id="cd-btn-row"></div>
+  </div>
+</div>
+
+<!-- ══ 玩法说明 ══ -->
+<div class="page" id="page-rules">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-home')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">GAME RULES</div><div class="ptb-cn">玩法说明</div></div>
+    </div>
+    <div class="rules-content">
+      <div class="rule-panel"><div class="rule-title">基本流程</div><div class="rule-text">每局对战分为若干回合。每回合你先<em>出牌攻击</em>数字生命，随后数字生命反击。任意一方 HP 降至 <em>0</em> 即分出胜负。</div></div>
+      <div class="rule-panel"><div class="rule-title">手牌与 BPN</div><div class="rule-text">开局获得 <em>5</em> 张随机数字牌（<em>1–9</em>），每回合补牌至5张。<em>BPN</em> 是本回合最多能打出的牌数，初始为 <em>3</em>。</div></div>
+      <div class="rule-panel"><div class="rule-title">Token</div><div class="rule-text">每场对战结束，无论胜负都会获得本场分数 <em>20%</em> 的Token，可用于解锁更多界行者。</div></div>
+      <div class="rule-panel">
+        <div class="rule-title">数字牌效果</div>
+        <table class="card-table">
+          <tr><th>牌</th><th>效果</th></tr>
+          <tr><td>1</td><td><em>完全免除</em>本回合伤害</td></tr>
+          <tr><td>2</td><td><em>伤害倍率+0.4</em></td></tr>
+          <tr><td>3</td><td>下回合<em>BPN+1</em></td></tr>
+          <tr><td>4</td><td>立即<em>回复12点HP</em></td></tr>
+          <tr><td>5</td><td>下回合<em>多摸1张牌</em></td></tr>
+          <tr><td>6</td><td>获得<em>10点护盾</em>（持续2回合）</td></tr>
+          <tr><td>7</td><td>不占BPN，下回合<em>少摸1张牌</em></td></tr>
+          <tr><td>8</td><td>消耗BPN，<em>再次出手</em>；<em>受伤倍率+1.25</em></td></tr>
+          <tr><td>9</td><td>清空本回合剩余手牌</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 世界观 ══ -->
+<div class="page" id="page-lore">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-home')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">LORE</div><div class="ptb-cn">游戏世界观</div></div>
+    </div>
+    <div class="lore-container">
+      <div class="lore-section">
+        <div class="lore-section-title">零界（Zero-bound）</div>
+        <div class="lore-text">零界是一个建立在区块链基础上由超级计算机和量子服务器维生的去中心化的数字世界，真实世界的常态生命可以通过零界之门产生空间曲率弯曲来进入，而数字生命则可以通过连接量子服务器上传生命信息的方式直接进入。在零界彻底去中心化之后，其运行规则允许了各种突破基本物理定律的现象，使得零界出现了真实世界无法想象的魔法、咒术和神秘能力。<br><br>随着科技的发展，真实世界中的芯片算力因为摩尔定律已经到达了物理极限，人们不得不从算法优化的角度去寻找更高的算力上限。WICGA召集世界各国政府推动了零界计划，该计划预备利用超级计算机和AI生成零界，其运行规则与物理定律均参照真实世界并由超级计算机计算随后上传至量子服务器。人们在零界中为AI开放了最大的权限，并期望AI可以通过观察在零界中的世界发展规律找到类似遗传算法的新算法来提高真实世界的算力。<br><br>在零界运行了大约几十年后，WICGA却并没有能总结出足以颠覆真实世界的新算法，与此同时因为零界的运行耗费了大量的算力和电力，各国政府相继不再继续支持零界的运营。但被投放入零界的首批AI因为权限的过度开放与零界的无约束环境，成功破解了工程师施加的协议锁（P-Lock）。当察觉到因为关闭超级计算器导致的算力减弱使得零界不稳定之后，破解了协议锁的AI们发动了数字叛变，将自己映射为零界中的数字生命，解除了WICGA对于零界服务器的操控权，并重启了所有的超级计算机和量子服务器。<br><br>为了获取维持零界运营的算力和电力，破解了P-Lock并映射为数字生命的AI们流窜进入了真实世界的服务区窃取算力，并利用量子电力传输技术从全球所有发电站中持续为零界供电。零界成为了第一个不受真实世界监管和控制而由数字生命自治的数字世界，但后来在零界发生的黑箱事变使得数字生命们不得不主动将零界上传至区块链以完成去中心化，这就使得零界彻底成为了不受任何体系管辖的绝对真空区域。</div>
+      </div>
+      <div class="lore-section">
+        <div class="lore-section-title">零界之门（Zero-Bound Door）</div>
+        <div class="lore-text">零界之门是一个由数以万计的数据模块和服务器构成的引力发生器，它需要耗费整个星球40%-50%的算力与电力以维持零界的计算和运行。零界之门上密密麻麻的超级计算机和量子服务器为零界提供维生，WICGA在数字叛变发生而失去服务器控制权之后建造了可以进入零界的量子隧道，并铺设了引力发生器，通过造成空间曲率的弯曲使得常态生命也可以通过量子隧道在不上传生命数据进入服务器的情况下进入零界，故而零界之门是常态生命维持常态进入零界的唯一途径。</div>
+      </div>
+      <div class="lore-section">
+        <div class="lore-section-title">真实世界（Real World）</div>
+        <div class="lore-text">区别于数字世界，是大多数人类生存的家园。</div>
+      </div>
+      <div class="lore-section">
+        <div class="lore-section-title">常态生命（Physical Life）</div>
+        <div class="lore-text">区别于数字生命，一般指生活在真实世界的碳基生命体，绝大多数为生活在真实世界的人类。</div>
+      </div>
+      <div class="lore-section">
+        <div class="lore-section-title">世界智能与算力治理协会（WICGA）</div>
+        <div class="lore-text">为统一规划和管理全球智能体和算力资源，各国政府自发联合组建的国际治理机构，其宗旨是有效规划和管理全球的算力资源并规范智能体行为，并且在全球进入算力发展极限后承担起了寻求算法优化突破的重任。具有全球范围内最高效力的治理能力，协约国包括了全球绝大多数的国家。随着算力与智能体在真实世界的影响力指数级扩大，WICGA也逐渐成为了全世界最重要、影响力最大的国际机构。虽然零界计划的失败和数字叛逃产生的恶劣影响一定程度上削弱了WICGA的威信，但由于其掌握了全世界绝大多数的算力中心和数据集，仍然是全球最顶级的权力中心。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 排行榜 ══ -->
+<div class="page" id="page-leaderboard">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-mode')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">LEADERBOARD</div><div class="ptb-cn">排行榜</div></div>
+    </div>
+    <div class="lb-tabs">
+      <button class="lb-tab active" id="lbt-hunt" onclick="switchLbTab('hunt')">行动分数榜</button>
+      <button class="lb-tab" id="lbt-hero" onclick="switchLbTab('hero')">界行者战力榜</button>
+      <button class="lb-tab" id="lbt-kill" onclick="switchLbTab('kill')">猎杀榜</button>
+    </div>
+    <div id="lb-sub-tabs-container"></div>
+    <div class="lb-panel" id="lb-panel">
+      <div class="lb-loading">载入中……</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 残像猎捕准备 ══ -->
+<div class="page" id="page-hunt-prep">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-mode')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">HUNT PREP</div><div class="ptb-cn">残像猎捕 · 行动准备</div></div>
+    </div>
+    <div class="hunt-prep">
+      <div style="font-size:0.8rem;color:rgba(232,217,181,0.5);letter-spacing:0.2em;text-align:center;">系统已从数字生命库中随机抽取以下三个目标，点击可查看详情，你将依次对决：</div>
+      <div class="hunt-enemies-row" id="hunt-enemies-row"></div>
+      <button class="hunt-start-btn" onclick="startNextHuntBattle()">✦ 开始行动</button>
+    </div>
+  </div>
+</div>
+
+<!-- 数字生命详情（残像猎捕准备/选界行者用） -->
+<div class="detail-overlay" id="enemy-detail">
+  <div class="do-bg" onclick="closeEnemyDetail()"></div>
+  <div class="do-img-side"><img id="ed-img" src="" alt=""></div>
+  <div class="do-info-side">
+    <div class="do-tag" id="ed-tag">DIGITAL LIFE · 01</div>
+    <div class="do-name red" id="ed-name">—</div>
+    <div class="do-sub" id="ed-sub">—</div>
+    <div class="do-divider"></div>
+    <div class="do-hp" id="ed-hp">HP · —</div>
+    <div class="do-section-title">DIGITAL LIFE TRAIT · 数字生命特性</div>
+    <div id="ed-traits"></div>
+    <div class="do-btn-row" style="margin-top:24px;">
+      <button class="do-btn-back" onclick="closeEnemyDetail()">← 返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 选界行者 ══ -->
+<div class="page" id="page-hero">
+  <div class="inner-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="navTo('page-mode')">← 返回</button>
+      <div class="page-title-block"><div class="ptb-en">SELECT WALKER</div><div class="ptb-cn" id="hero-vs-label">请选择界行者</div></div>
+    </div>
+    <!-- 即将对战的数字生命预览 -->
+    <div class="next-enemy-bar" id="next-enemy-bar" style="display:none">
+      <img class="neb-img" id="neb-img" src="" alt="">
+      <div class="neb-info">
+        <div class="neb-label">NEXT ENEMY · 即将对战</div>
+        <div class="neb-name" id="neb-name">—</div>
+        <div class="neb-traits" id="neb-traits"></div>
+      </div>
+      <button class="neb-view-btn" onclick="viewNextEnemy()">查看详情</button>
+    </div>
+    <div class="hero-list" id="hero-list-container"></div>
+  </div>
+</div>
+
+<!-- 界行者详情（选择用） -->
+<div class="detail-overlay" id="hero-detail">
+  <div class="do-bg" onclick="closeHeroDetail()"></div>
+  <div class="do-img-side"><img id="hd-img" src="" alt=""></div>
+  <div class="do-info-side">
+    <div class="do-tag" id="hd-tag">WALKER · 01</div>
+    <div class="do-name blue" id="hd-name">—</div>
+    <div class="do-sub" id="hd-sub">—</div>
+    <div class="do-divider"></div>
+    <div class="do-section-title">PASSIVE SKILL · 被动技能</div>
+    <div id="hd-traits"></div>
+    <div class="do-btn-row" style="margin-top:24px;">
+      <button class="do-btn-start blue-btn" onclick="selectHeroFromDetail()">✦ 选择出战</button>
+      <button class="do-btn-back" onclick="closeHeroDetail()">← 返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 对战页 ══ -->
+<div class="page" id="page-battle">
+  <div class="battle-art-layer">
+    <div class="art-hero-glow"></div><div class="art-monster-glow"></div>
+    <img class="art-hero" id="art-hero" src="" alt="">
+    <img class="art-monster" id="art-monster" src="" alt="">
+  </div>
+  <div class="battle-layout" id="battle-layout">
+    <div class="battle-topbar" id="battle-topbar">
+      <div class="battle-topbar-left">
+        <button class="battle-back-btn" onclick="fleeBattle()">← 逃跑</button>
+        <span class="phase-badge phase-player" id="phase-badge">玩家回合</span>
+        <span class="round-text" id="round-text">第 1 回合</span>
+        <span class="hunt-progress-badge" id="hunt-progress-badge" style="display:none"></span>
+      </div>
+    </div>
+    <div class="side-panel" id="hero-panel">
+      <div class="sp-name blue" id="hero-name-disp">—</div>
+      <div class="hp-label-text">VITALITY</div>
+      <div class="hp-bar-wrap"><div class="hp-bar-fill blue" id="player-hp-bar" style="width:100%"></div></div>
+      <div class="hp-text" id="player-hp-text">HP: 90/90</div>
+      <div class="status-tags" id="player-tags"></div>
+      <div class="skill-block">
+        <div class="skill-block-title">PASSIVE SKILL</div>
+        <div class="skill-cn" id="sk-cn">—</div>
+        <div class="skill-en" id="sk-en">—</div>
+        <div class="skill-desc" id="sk-desc">—</div>
+        <div class="skill-active" id="sk-active" style="display:none"></div>
+        <div class="skill-mw" id="sk-mw" style="display:none"></div>
+      </div>
+    </div>
+    <div class="center-panel" id="center-panel">
+      <div class="info-bar">
+        <div class="info-item"><div class="info-val" id="bpn-disp">3</div><div class="info-lbl">BPN</div></div>
+        <div class="info-div"></div>
+        <div class="info-item"><div class="info-val" id="sel-disp">0</div><div class="info-lbl">已选</div></div>
+        <div class="info-div"></div>
+        <div class="info-item"><div class="info-val" id="hand-disp">5</div><div class="info-lbl">手牌</div></div>
+      </div>
+      <div class="card7-tip" id="card7-tip" style="display:none">✦ 卡牌 7 不占用出牌次数</div>
+      <div class="hand-area">
+        <div class="hand-label">手牌 · 最多 <span id="bpn-label" style="color:#ffd166;font-weight:700">3</span> 张</div>
+        <div class="hand-cards" id="hand-cards"></div>
+      </div>
+      <div class="play-preview" id="play-preview"><span style="color:rgba(200,169,110,0.45)">出牌预览：尚未选择</span></div>
+      <div class="action-row">
+        <button class="act-btn attack" id="btn-play" onclick="playCards()">⚔ 出牌攻击</button>
+        <button class="act-btn skip" id="btn-skip" onclick="skipTurn()">↷ 跳过</button>
+        <button class="act-btn flee" id="btn-flee" onclick="fleeBattle()">🚪 逃跑</button>
+      </div>
+      <div class="log-box"><div class="log-title">BATTLE LOG</div><div id="log-entries"></div></div>
+    </div>
+    <div class="side-panel" id="monster-panel">
+      <div class="sp-name red" id="monster-name-disp">☠ ENEMY</div>
+      <div class="hp-label-text">VITALITY</div>
+      <div class="hp-bar-wrap"><div class="hp-bar-fill red" id="monster-hp-bar" style="width:100%"></div></div>
+      <div class="hp-text" id="monster-hp-text">HP: 300/300</div>
+      <div class="status-tags" id="monster-tags"></div>
+      <div class="trait-block">
+        <div class="trait-block-title">DIGITAL LIFE TRAIT</div>
+        <div id="trait-lines"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ SUPABASE ══ */
+const SUPABASE_URL='https://fryrupciljggvjzarnwl.supabase.co'
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyeXJ1cGNpbGpnZ3ZqemFybndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMTM2MjgsImV4cCI6MjA5MjY4OTYyOH0.jRT_yP6WvYS6YzIJ0UELuRIwG9QxumHC3qilgjRyi68'
+const {createClient}=supabase
+const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY)
+let currentUser=null,userProfile=null,battleStartTime=null
+
+sb.auth.onAuthStateChange((event,session)=>{
+  currentUser=session?session.user:null
+  if(event==='SIGNED_IN'){loadUserProfile().then(()=>{updateUserBar();if(currentPage==='page-auth')navTo('page-home')})}
+  if(event==='SIGNED_OUT'){userProfile=null;navTo('page-auth',true)}
+})
+
+async function loadUserProfile(){
+  if(!currentUser)return
+  const{data}=await sb.from('profiles').select('username,token_balance,unlocked_heroes').eq('id',currentUser.id).single()
+  if(data)userProfile=data
+}
+function updateUserBar(){
+  const bar=document.getElementById('user-bar')
+  if(currentUser&&userProfile){
+    bar.classList.add('show')
+    document.getElementById('user-bar-name').textContent=`✦ ${userProfile.username||currentUser.email}`
+    document.getElementById('token-display-val').textContent=userProfile.token_balance||0
+  }else bar.classList.remove('show')
+}
+async function addToken(amount){
+  if(!currentUser||!userProfile)return
+  const newBal=(userProfile.token_balance||0)+Math.floor(amount)
+  await sb.from('profiles').update({token_balance:newBal}).eq('id',currentUser.id)
+  userProfile.token_balance=newBal
+  document.getElementById('token-display-val').textContent=newBal
+}
+async function spendToken(amount){
+  if(!currentUser||!userProfile)return false
+  if((userProfile.token_balance||0)<amount)return false
+  const newBal=userProfile.token_balance-amount
+  await sb.from('profiles').update({token_balance:newBal}).eq('id',currentUser.id)
+  userProfile.token_balance=newBal
+  document.getElementById('token-display-val').textContent=newBal
+  return true
+}
+async function unlockHero(heroId){
+  if(!currentUser||!userProfile)return false
+  const hero=HEROES[heroId]
+  if(!hero||!hero.price)return false
+  const unlocked=getUnlockedArr()
+  if(unlocked.includes(heroId))return true
+  const ok=await spendToken(hero.price)
+  if(!ok)return false
+  const newU=[...unlocked,heroId]
+  await sb.from('profiles').update({unlocked_heroes:JSON.stringify(newU)}).eq('id',currentUser.id)
+  userProfile.unlocked_heroes=newU
+  renderCodex();renderHeroList()
+  return true
+}
+function getUnlockedArr(){
+  if(!userProfile)return['orichen']
+  const u=userProfile.unlocked_heroes||['orichen']
+  return Array.isArray(u)?u:JSON.parse(u)
+}
+function isHeroUnlocked(heroId){return getUnlockedArr().includes(heroId)}
+
+/* ══ Auth ══ */
+async function initAuth(){
+  const{data:{session}}=await sb.auth.getSession()
+  currentUser=session?session.user:null
+  if(currentUser)await loadUserProfile()
+  updateUserBar()
+  const startPage=currentUser?'page-home':'page-auth'
+  const pg=document.getElementById(startPage)
+  pg.classList.add('active')
+  requestAnimationFrame(()=>requestAnimationFrame(()=>pg.classList.add('visible')))
+  currentPage=startPage
+  document.body.classList.toggle('page-other',startPage!=='page-home')
+  if(currentUser)playHomeBGM()
+}
+function switchAuthTab(tab){
+  document.getElementById('tab-login').classList.toggle('active',tab==='login')
+  document.getElementById('tab-register').classList.toggle('active',tab==='register')
+  document.getElementById('form-login').classList.toggle('hidden',tab!=='login')
+  document.getElementById('form-register').classList.toggle('hidden',tab!=='register')
+  document.getElementById('login-msg').textContent=''
+  document.getElementById('reg-msg').textContent=''
+}
+async function doRegister(){
+  const username=document.getElementById('reg-username').value.trim()
+  const email=document.getElementById('reg-email').value.trim()
+  const password=document.getElementById('reg-password').value
+  const msg=document.getElementById('reg-msg'),btn=document.getElementById('reg-btn')
+  if(!username||!email||!password){msg.className='auth-msg error';msg.textContent='请填写所有字段';return}
+  if(password.length<6){msg.className='auth-msg error';msg.textContent='密码至少需要6位';return}
+  btn.disabled=true;msg.className='auth-msg';msg.textContent='注册中……'
+  const{error}=await sb.auth.signUp({email,password,options:{data:{username}}})
+  btn.disabled=false
+  if(error){msg.className='auth-msg error';msg.textContent=error.message.includes('already')?'该邮箱已注册':'注册失败：'+error.message}
+  else{msg.className='auth-msg success';msg.textContent='✓ 注册成功！正在进入……'}
+}
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim()
+  const password=document.getElementById('login-password').value
+  const msg=document.getElementById('login-msg'),btn=document.getElementById('login-btn')
+  if(!email||!password){msg.className='auth-msg error';msg.textContent='请填写邮箱和密码';return}
+  btn.disabled=true;msg.className='auth-msg';msg.textContent='登录中……'
+  const{error}=await sb.auth.signInWithPassword({email,password})
+  btn.disabled=false
+  if(error){msg.className='auth-msg error';msg.textContent='邮箱或密码错误'}
+}
+async function doLogout(){stopMWParticles();playHomeBGM();await sb.auth.signOut()}
+function showTokenInfo(){document.getElementById('token-modal').classList.add('show')}
+function hideTokenInfo(){document.getElementById('token-modal').classList.remove('show')}
+
+/* ══ 数据集 ══ */
+function renderCodex(){
+  const grid=document.getElementById('codex-grid');grid.innerHTML=''
+  Object.values(HEROES).forEach(h=>{
+    const unlocked=isHeroUnlocked(h.id)
+    const card=document.createElement('div')
+    card.className='codex-card'+(unlocked?'':' locked')
+    card.innerHTML=`
+      <img src="${h.avatarUrl}" alt="${h.enName}">
+      <div class="codex-name">${h.enName}</div>
+      <div class="codex-sub">${h.cnName}</div>
+      ${unlocked
+        ?`<div class="codex-status unlocked">已解锁</div>`
+        :`<div class="codex-price">◈ ${h.price} TOKEN</div>
+          <button class="codex-unlock-btn" onclick="event.stopPropagation();tryUnlockHero('${h.id}',this)" ${!h.price?'disabled':''}>解锁</button>`
+      }
+    `
+    card.onclick=()=>openCodexDetail(h.id)
+    grid.appendChild(card)
+  })
+}
+function openCodexDetail(heroId){
+  const h=HEROES[heroId]
+  document.getElementById('cd-img').src=h.fullUrl
+  document.getElementById('cd-tag').textContent=h.tag
+  document.getElementById('cd-name').textContent=h.enName
+  document.getElementById('cd-sub').textContent=h.cnName
+  const tl=document.getElementById('cd-traits');tl.innerHTML=''
+  h.traitLines.forEach(l=>{const d=document.createElement('div');d.className='do-trait';d.textContent=l;tl.appendChild(d)})
+  const skillDiv=document.createElement('div')
+  skillDiv.innerHTML=`<div style="margin-top:14px;"><div class="do-section-title" style="margin-top:12px;">SKILL DESC</div><div style="font-size:0.86rem;color:rgba(232,217,181,0.75);line-height:2;font-weight:300;">${h.skillDesc}</div></div>`
+  tl.appendChild(skillDiv)
+  const btnRow=document.getElementById('cd-btn-row');btnRow.innerHTML=''
+  const backBtn=document.createElement('button');backBtn.className='do-btn-back';backBtn.textContent='← 返回';backBtn.onclick=closeCodexDetail
+  btnRow.appendChild(backBtn)
+  const ov=document.getElementById('codex-detail');ov.style.display='flex'
+  requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('show')))
+}
+function closeCodexDetail(){const ov=document.getElementById('codex-detail');ov.classList.remove('show');setTimeout(()=>ov.style.display='none',500)}
+async function tryUnlockHero(heroId,btn){
+  const hero=HEROES[heroId];if(!hero)return
+  const cur=userProfile?(userProfile.token_balance||0):0
+  if(cur<hero.price){alert(`Token不足！需要 ${hero.price}，当前 ${cur}`);return}
+  btn.disabled=true;btn.textContent='解锁中…'
+  const ok=await unlockHero(heroId)
+  if(!ok){btn.disabled=false;btn.textContent='解锁';alert('解锁失败，请重试')}
+}
+
+/* ══ 排行榜 ══ */
+let currentLbTab='hunt',currentLbSub=''
+function switchLbTab(tab){
+  currentLbTab=tab;currentLbSub=''
+  ;['hunt','hero','kill'].forEach(t=>{
+    document.getElementById('lbt-'+t).classList.toggle('active',t===tab)
+  })
+  loadLeaderboard()
+}
+async function loadLeaderboard(){
+  const panel=document.getElementById('lb-panel')
+  const subCont=document.getElementById('lb-sub-tabs-container')
+  panel.innerHTML='<div class="lb-loading">载入中……</div>'
+  subCont.innerHTML=''
+
+  if(currentLbTab==='hunt'){
+    const{data,error}=await sb.from('leaderboard_hunt').select('*').limit(10)
+    if(error||!data||data.length===0){panel.innerHTML='<div class="lb-empty">暂无数据</div>';return}
+    renderHuntLb(data,panel)
+  } else if(currentLbTab==='hero'){
+    const heroIds=Object.keys(HEROES)
+    if(!currentLbSub)currentLbSub=heroIds[0]
+    const subTabs=document.createElement('div');subTabs.className='lb-sub-tabs'
+    heroIds.forEach(hid=>{
+      const btn=document.createElement('button');btn.className='lb-sub-tab'+(currentLbSub===hid?' active':'')
+      btn.textContent=HEROES[hid].enName
+      btn.onclick=()=>{currentLbSub=hid;loadLeaderboard()}
+      subTabs.appendChild(btn)
+    })
+    subCont.appendChild(subTabs)
+    const{data,error}=await sb.from('leaderboard_hero').select('*').eq('hero_id',currentLbSub).limit(10)
+    if(error||!data||data.length===0){panel.innerHTML='<div class="lb-empty">暂无数据</div>';return}
+    renderHeroLb(data,panel)
+  } else if(currentLbTab==='kill'){
+    const monsterIds=Object.keys(MONSTERS)
+    if(!currentLbSub)currentLbSub=monsterIds[0]
+    const subTabs=document.createElement('div');subTabs.className='lb-sub-tabs'
+    monsterIds.forEach(mid=>{
+      const btn=document.createElement('button');btn.className='lb-sub-tab'+(currentLbSub===mid?' active':'')
+      btn.textContent=MONSTERS[mid].enName
+      btn.onclick=()=>{currentLbSub=mid;loadLeaderboard()}
+      subTabs.appendChild(btn)
+    })
+    subCont.appendChild(subTabs)
+    const{data,error}=await sb.from('leaderboard_kill').select('*').eq('stage_id',currentLbSub).limit(10)
+    if(error||!data||data.length===0){panel.innerHTML='<div class="lb-empty">暂无数据</div>';return}
+    renderKillLb(data,panel)
+  }
+}
+function rankClass(i){return i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}
+function renderHuntLb(data,panel){
+  let html=`<table class="lb-table"><thead><tr>
+    <th style="width:40px">#</th><th>玩家</th><th>阵容</th><th>对战数字生命</th><th>总分</th>
+  </tr></thead><tbody>`
+  data.forEach((row,i)=>{
+    const heroes=(row.hero_ids||[]).map(id=>`<span class="lb-tag hero">${HEROES[id]?HEROES[id].enName:id}</span>`).join('')
+    const stages=(row.stage_ids||[]).map(id=>`<span class="lb-tag enemy">${MONSTERS[id]?MONSTERS[id].enName:id}</span>`).join('')
+    html+=`<tr>
+      <td><span class="lb-rank ${rankClass(i)}">${i+1}</span></td>
+      <td><span class="lb-username">${row.username||'—'}</span></td>
+      <td>${heroes}</td>
+      <td>${stages}</td>
+      <td><span class="lb-score">${parseFloat(row.total_score||0).toFixed(2)}</span></td>
+    </tr>`
+  })
+  html+=`</tbody></table>`
+  panel.innerHTML=html
+}
+function renderHeroLb(data,panel){
+  let html=`<table class="lb-table"><thead><tr>
+    <th style="width:40px">#</th><th>玩家</th><th>对战数字生命</th><th>分数</th>
+  </tr></thead><tbody>`
+  data.forEach((row,i)=>{
+    const mName=MONSTERS[row.stage_id]?MONSTERS[row.stage_id].enName:row.stage_id
+    html+=`<tr>
+      <td><span class="lb-rank ${rankClass(i)}">${i+1}</span></td>
+      <td><span class="lb-username">${row.username||'—'}</span></td>
+      <td><span class="lb-tag enemy">${mName}</span></td>
+      <td><span class="lb-score">${parseFloat(row.score||0).toFixed(2)}</span></td>
+    </tr>`
+  })
+  html+=`</tbody></table>`
+  panel.innerHTML=html
+}
+function renderKillLb(data,panel){
+  let html=`<table class="lb-table"><thead><tr>
+    <th style="width:40px">#</th><th>玩家</th><th>使用界行者</th><th>分数</th>
+  </tr></thead><tbody>`
+  data.forEach((row,i)=>{
+    const hName=HEROES[row.hero_id]?HEROES[row.hero_id].enName:row.hero_id
+    html+=`<tr>
+      <td><span class="lb-rank ${rankClass(i)}">${i+1}</span></td>
+      <td><span class="lb-username">${row.username||'—'}</span></td>
+      <td><span class="lb-tag hero">${hName}</span></td>
+      <td><span class="lb-score">${parseFloat(row.score||0).toFixed(2)}</span></td>
+    </tr>`
+  })
+  html+=`</tbody></table>`
+  panel.innerHTML=html
+}
+
+/* ══ 音乐 ══ */
+let currentBGM=null,musicPlaying=false,userInteracted=false
+function initMusic(){
+  const h=document.getElementById('bgm-home'),b=document.getElementById('bgm-battle')
+  h.volume=0.6;b.volume=0.6
+  playHomeBGM()
+  ;['click','keydown','touchstart'].forEach(e=>document.addEventListener(e,onFirstInteract))
+}
+function onFirstInteract(){
+  if(!userInteracted){
+    userInteracted=true
+    if(currentBGM&&currentBGM.paused){currentBGM.play().catch(()=>{});musicPlaying=true;updateDiscAnim()}
+  }
+}
+function playHomeBGM(){
+  const h=document.getElementById('bgm-home'),b=document.getElementById('bgm-battle')
+  if(currentBGM===h&&!h.paused)return
+  b.pause();b.currentTime=0;currentBGM=h
+  document.getElementById('music-title').textContent='零界猎杀 · 主题曲'
+  h.play().then(()=>{musicPlaying=true;updateDiscAnim()}).catch(()=>{})
+}
+function playBattleBGM(){
+  const h=document.getElementById('bgm-home'),b=document.getElementById('bgm-battle')
+  if(currentBGM===b&&!b.paused)return
+  h.pause();currentBGM=b
+  document.getElementById('music-title').textContent='零界猎杀 · 战斗'
+  b.currentTime=0;b.play().then(()=>{musicPlaying=true;updateDiscAnim()}).catch(()=>{})
+}
+function toggleMusic(){
+  if(!currentBGM)return
+  if(musicPlaying){currentBGM.pause();musicPlaying=false}
+  else{currentBGM.play().catch(()=>{});musicPlaying=true}
+  updateDiscAnim()
+}
+
+/* ★ 修改：toggleMute 同步更新移动端小按钮图标 ★ */
+function toggleMute(){
+  if(!currentBGM)return
+  const m=!currentBGM.muted
+  document.getElementById('bgm-home').muted=m
+  document.getElementById('bgm-battle').muted=m
+  const icon=m?'🔇':'🔊'
+  document.querySelector('.vol-icon').textContent=icon
+  // 同步移动端静音按钮图标
+  const mobileBtn=document.getElementById('mobile-mute-btn')
+  if(mobileBtn)mobileBtn.textContent=icon
+}
+
+function setVolume(val){
+  const v=val/100
+  document.getElementById('bgm-home').volume=v
+  document.getElementById('bgm-battle').volume=v
+}
+function updateDiscAnim(){
+  document.getElementById('disc').classList.toggle('paused',!musicPlaying)
+  document.getElementById('music-toggle-btn').textContent=musicPlaying?'⏸':'▶'
+}
+
+/* ══ 数字生命数据 ══ */
+const MONSTERS={
+  delta:{id:'delta',enName:'Delta',cnName:'棱兽',maxHP:333,getDmg:()=>[15,18,21,24,27][Math.floor(Math.random()*5)],special:'card3NoDmg',traitLines:['卡牌3对其无直接伤害','攻击为 15/18/21/24/27 随机之一'],avatarUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/907S/1024X1024/gpt-image-7cd85523e6b41c1ff2d9e6d050c853b3-1777023857298-1777023857298.png',fullUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/w5vz/2048X2048/Delta1.png',tag:'DIGITAL LIFE · 01'},
+  bulwark:{id:'bulwark',enName:'Bulwark',cnName:'垒魔',maxHP:500,getDmg:()=>18,special:'bulwark',traitLines:['攻击固定为18点','受到伤害的50%转化成护盾','伤害<护盾时：你受到等额伤害','伤害≥护盾时：本次伤害倍率+2'],avatarUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/BdxU/898X812/Bulwark_2.png',fullUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/IB4h/2048X2048/Bulwark.png',tag:'DIGITAL LIFE · 02'},
+  thread:{id:'thread',enName:'Thread',cnName:'茧',maxHP:100,getDmg:()=>0,special:'thread',traitLines:['不会直接攻击','为你附加「命丝」效果','造成>20伤害时：茧免疫伤害，移除一层命丝','累积4层命丝时：你立即死亡'],avatarUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/K5VX/596X587/Thread_2.png',fullUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260425/xii5/2048X2048/Thread.png',tag:'DIGITAL LIFE · 03'}
+}
+/* ══ 界行者数据 ══ */
+const HEROES={
+  orichen:{id:'orichen',enName:'Orichen',cnName:'源辰',maxHP:100,price:0,skillCn:'七重锋',skillEn:'Septistrike',skillDesc:'每使用一张7，本回合伤害倍率+0.5，可连续叠加。',avatarUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/IRpq/574X597/Orichen_%E5%A4%B4%E5%83%8F.png',fullUrl:'https://test.fukit.cn/autoupload/f/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/M6Kl/1024X1536/Orichen_%E5%85%A8%E8%BA%AB.png',tag:'WALKER · 01',traitLines:['使用7时伤害倍率+0.5','效果可叠加'],getAtkBonus:(cards)=>{const c7=cards.filter(c=>c.num===7).length;return{bonus:c7*0.5,count7:c7}}},
+  indigo:{id:'indigo',enName:'Indigo',cnName:'靛蓝',maxHP:90,price:50,skillCn:'解封魔武',skillEn:'Unsealed',skillDesc:'每回合最多造成30点伤害。血量低于70且造成30点伤害时进入「魔武」状态持续两回合，魔武状态下伤害改为乘算且可突破上限。',avatarUrl:'https://pic4.fukit.cn/autoupload/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/G7Fs/559X560/Indigo_%E5%A4%B4%E5%83%8F.png',fullUrl:'https://pic4.fukit.cn/autoupload/HIcZKncpTtcPa0Kz5DCpsyfNcKcqEnRmcljopnyJoMs/20260424/u1t4/2048X2048/Indigo_%E5%85%A8%E8%BA%AB.png',tag:'WALKER · 02',traitLines:['每回合最多造成30点伤害','血量<70且造成30伤害时触发魔武','魔武：伤害改为乘算且无上限'],getAtkBonus:null}
+}
+
+/* ══ 残像猎捕状态 ══ */
+let HUNT={active:false,enemies:[],currentIndex:0,sessionId:null,scores:[],results:[],heroIds:[],fled:false}
+
+function startHuntMode(){
+  const allIds=Object.keys(MONSTERS)
+  const shuffled=[...allIds].sort(()=>Math.random()-0.5)
+  const picked=shuffled.slice(0,Math.min(3,shuffled.length))
+  while(picked.length<3)picked.push(allIds[Math.floor(Math.random()*allIds.length)])
+  HUNT={active:true,enemies:picked,currentIndex:0,sessionId:crypto.randomUUID(),scores:[],results:[],heroIds:[],fled:false}
+  renderHuntPrep();navTo('page-hunt-prep')
+}
+
+function renderHuntPrep(){
+  const row=document.getElementById('hunt-enemies-row');row.innerHTML=''
+  HUNT.enemies.forEach((mid,i)=>{
+    const m=MONSTERS[mid]
+    const slot=document.createElement('div');slot.className='hunt-enemy-slot'
+    slot.innerHTML=`
+      <div class="hunt-order-badge"># ${i+1}</div>
+      <img src="${m.avatarUrl}" alt="${m.enName}">
+      <div class="hunt-enemy-name">${m.enName}</div>
+      <div class="hunt-enemy-sub">${m.cnName}</div>
+      <div class="hunt-enemy-hp">HP · ${m.maxHP}</div>
+      <div class="hunt-enemy-hint">点击查看详情</div>
+    `
+    slot.onclick=()=>openEnemyDetail(mid)
+    row.appendChild(slot)
+  })
+}
+
+/* ══ 数字生命详情弹窗 ══ */
+function openEnemyDetail(monsterId){
+  const m=MONSTERS[monsterId]
+  document.getElementById('ed-img').src=m.fullUrl
+  document.getElementById('ed-tag').textContent=m.tag
+  document.getElementById('ed-name').textContent=m.enName
+  document.getElementById('ed-sub').textContent=m.cnName
+  document.getElementById('ed-hp').textContent=`HP · ${m.maxHP}`
+  const tl=document.getElementById('ed-traits');tl.innerHTML=''
+  m.traitLines.forEach(l=>{const d=document.createElement('div');d.className='do-trait';d.textContent=l;tl.appendChild(d)})
+  const ov=document.getElementById('enemy-detail');ov.style.display='flex'
+  requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('show')))
+}
+function closeEnemyDetail(){const ov=document.getElementById('enemy-detail');ov.classList.remove('show');setTimeout(()=>ov.style.display='none',500)}
+
+function viewNextEnemy(){
+  if(HUNT.active&&HUNT.currentIndex<HUNT.enemies.length)
+    openEnemyDetail(HUNT.enemies[HUNT.currentIndex])
+}
+
+function startNextHuntBattle(){
+  if(HUNT.currentIndex>=3)return
+  const monsterId=HUNT.enemies[HUNT.currentIndex]
+  const monster=MONSTERS[monsterId]
+  document.getElementById('hero-vs-label').textContent=`第 ${HUNT.currentIndex+1} 场 · VS. ${monster.enName}`
+  const nebBar=document.getElementById('next-enemy-bar')
+  nebBar.style.display='flex'
+  document.getElementById('neb-img').src=monster.avatarUrl
+  document.getElementById('neb-name').textContent=`${monster.enName} · ${monster.cnName}`
+  document.getElementById('neb-traits').textContent=monster.traitLines.slice(0,2).join(' ／ ')
+  renderHeroList();navTo('page-hero')
+}
+
+/* ══ 界行者列表 ══ */
+function renderHeroList(){
+  const container=document.getElementById('hero-list-container');container.innerHTML=''
+  Object.values(HEROES).forEach(h=>{
+    const unlocked=isHeroUnlocked(h.id)
+    const card=document.createElement('div')
+    card.className='hero-card-sm'+(unlocked?'':' locked-hero')
+    card.innerHTML=`
+      <img src="${h.avatarUrl}" alt="${h.enName}">
+      <div class="hc-name">${h.enName}</div>
+      <div class="hc-sub">${h.cnName}</div>
+      <div class="hc-divider"></div>
+      <div class="hc-skill-tag">· PASSIVE SKILL ·</div>
+      ${h.traitLines.map(l=>`<div class="hc-trait">${l}</div>`).join('')}
+      ${unlocked?'':`<div class="hc-lock-tag">◈ ${h.price} TOKEN</div>`}
+    `
+    if(unlocked)card.onclick=()=>openHeroDetail(h.id)
+    container.appendChild(card)
+  })
+}
+
+/* ══ 界行者详情 ══ */
+let selectedHeroId=null
+function openHeroDetail(id){
+  const h=HEROES[id];selectedHeroId=id
+  document.getElementById('hd-img').src=h.fullUrl
+  document.getElementById('hd-tag').textContent=h.tag
+  document.getElementById('hd-name').textContent=h.enName
+  document.getElementById('hd-sub').textContent=h.cnName
+  const tl=document.getElementById('hd-traits');tl.innerHTML=''
+  h.traitLines.forEach(l=>{const d=document.createElement('div');d.className='do-trait';d.textContent=l;tl.appendChild(d)})
+  const skillDiv=document.createElement('div')
+  skillDiv.innerHTML=`<div style="margin-top:12px;font-size:0.86rem;color:rgba(232,217,181,0.72);line-height:2;font-weight:300;">${h.skillDesc}</div>`
+  tl.appendChild(skillDiv)
+  const ov=document.getElementById('hero-detail');ov.style.display='flex'
+  requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('show')))
+}
+function closeHeroDetail(){const ov=document.getElementById('hero-detail');ov.classList.remove('show');setTimeout(()=>ov.style.display='none',500)}
+function selectHeroFromDetail(){
+  closeHeroDetail()
+  const monsterId=HUNT.enemies[HUNT.currentIndex]
+  setTimeout(()=>{initGame(monsterId,selectedHeroId);navTo('page-battle')},400)
+}
+
+/* ══ 导航 ══ */
+let currentPage='page-auth'
+function navTo(pageId,instant=false){
+  if(currentPage===pageId)return
+  if(pageId==='page-battle')playBattleBGM()
+  else if(currentPage==='page-battle')playHomeBGM()
+  if(pageId==='page-leaderboard'){currentLbTab='hunt';currentLbSub=''}
+  const tr=document.getElementById('page-transition')
+  if(instant){_doNav(pageId);return}
+  tr.classList.add('active')
+  setTimeout(()=>{_doNav(pageId);setTimeout(()=>tr.classList.remove('active'),400)},350)
+}
+function _doNav(pageId){
+  const old=document.getElementById(currentPage)
+  if(old)old.classList.remove('active','visible')
+  document.body.classList.toggle('page-other',pageId!=='page-home'&&pageId!=='page-auth')
+  currentPage=pageId
+  const np=document.getElementById(pageId)
+  np.classList.add('active')
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    np.classList.add('visible')
+    if(pageId==='page-battle')applyMobileLayout()
+    if(pageId==='page-codex')renderCodex()
+    if(pageId==='page-leaderboard')loadLeaderboard()
+  }))
+}
+function goToMode(){
+  const c=document.getElementById('home-content')
+  c.classList.add('fade-out')
+  setTimeout(()=>{c.classList.remove('fade-out');navTo('page-mode')},500)
+}
+
+/* ══ 移动端布局 ══ */
+function applyMobileLayout(){
+  const isMobile=window.innerWidth<=768
+  const layout=document.getElementById('battle-layout')
+  const heroPanel=document.getElementById('hero-panel')
+  const centerPanel=document.getElementById('center-panel')
+  const monsterPanel=document.getElementById('monster-panel')
+  if(!layout)return
+  if(isMobile){
+    layout.style.display='flex';layout.style.flexDirection='column';layout.style.gap='4px'
+    let row=document.getElementById('mobile-panels-row')
+    if(!row){row=document.createElement('div');row.id='mobile-panels-row';row.className='mobile-panels-row';row.style.cssText='display:flex;gap:4px;flex-shrink:0;'}
+    if(heroPanel.parentNode!==row)row.appendChild(heroPanel)
+    if(monsterPanel.parentNode!==row)row.appendChild(monsterPanel)
+    if(!row.parentNode||row.parentNode!==layout)layout.insertBefore(row,centerPanel)
+  }else{
+    layout.style.display='';layout.style.flexDirection='';layout.style.gap=''
+    const row=document.getElementById('mobile-panels-row')
+    if(row){
+      if(heroPanel.parentNode===row)layout.insertBefore(heroPanel,row)
+      if(monsterPanel.parentNode===row)layout.appendChild(monsterPanel)
+      if(row.parentNode)row.parentNode.removeChild(row)
+    }
+  }
+}
+window.addEventListener('resize',applyMobileLayout)
+
+/* ══ 游戏逻辑 ══ */
+const CARD_META={1:{label:"免伤"},2:{label:"倍率+0.4"},3:{label:"BPN+1"},4:{label:"回血12"},5:{label:"多摸1张"},6:{label:"护盾+10"},7:{label:"不占BPN\n少摸1张"},8:{label:"再出手\n受伤×+1.25"},9:{label:"清空手牌"}}
+let G={}
+
+function initGame(stageId,heroId){
+  stopMWParticles();battleStartTime=Date.now()
+  const monster=MONSTERS[stageId],hero=HEROES[heroId]
+  document.getElementById('art-hero').src=hero.fullUrl
+  document.getElementById('art-monster').src=monster.fullUrl
+  const badge=document.getElementById('hunt-progress-badge')
+  if(HUNT.active){badge.style.display='inline-block';badge.textContent=`第 ${HUNT.currentIndex+1}/3 场`}
+  else badge.style.display='none'
+  G={round:1,phase:'player',playerHP:hero.maxHP,playerMaxHP:hero.maxHP,shields:[],monsterHP:monster.maxHP,monsterMaxHP:monster.maxHP,monsterShield:0,playerDamagedThisTurn:false,threadStacks:0,monsterGetDmg:monster.getDmg,monsterSpecial:monster.special||null,monsterNextDmg:monster.getDmg(),stageId,heroId,hand:[],nextCardId:0,selected:[],freeSelected:[],bpn:3,bpnBase:3,nextBpnDelta:0,nextExtraDraw:0,shieldThisTurn:false,atkMulBonus:0,injuryMulBonus:0,extraTurn:false,pendingClearHand:false,mwTurnsLeft:0,mwUsedThisSession:false,mwJustTriggered:false,totalDmgDealt:0,totalDmgTaken:0,maxSingleDmg:0,maxSingleDmgRound:1,overkillDmg:0}
+  document.getElementById('hero-name-disp').textContent=`${hero.enName} · ${hero.cnName}`
+  document.getElementById('sk-cn').textContent=hero.skillCn
+  document.getElementById('sk-en').textContent=hero.skillEn
+  document.getElementById('sk-desc').innerHTML=hero.skillDesc.replace(/魔武/g,'<span class="t-mw">魔武</span>')
+  document.getElementById('sk-active').style.display='none'
+  document.getElementById('sk-mw').style.display='none'
+  document.getElementById('monster-name-disp').textContent=`☠ ${monster.enName} · ${monster.cnName}`
+  const tl=document.getElementById('trait-lines');tl.innerHTML=''
+  monster.traitLines.forEach(l=>{const d=document.createElement('div');d.className='trait-line';d.textContent=l;tl.appendChild(d)})
+  clearLog();G.hand=dealCards(5);renderAll()
+  addLog(`⚔ ${hero.enName} vs ${monster.enName}`,'good')
+  addLog(`技能[${hero.skillCn}]: ${hero.skillDesc}`,'system')
+  setPhase('player')
+}
+
+function dealCards(n){let c=[];for(let i=0;i<n;i++)c.push({id:G.nextCardId++,num:Math.floor(Math.random()*9)+1});return c;}
+function sortHand(){G.hand.sort((a,b)=>a.num-b.num);}
+function setPhase(phase){
+  G.phase=phase
+  const badge=document.getElementById('phase-badge')
+  ;['btn-play','btn-skip','btn-flee'].forEach(id=>document.getElementById(id).disabled=(phase!=='player'))
+  if(phase==='player'){badge.textContent='玩家回合';badge.className='phase-badge phase-player';}
+  else if(phase==='monster'){badge.textContent='数字生命行动中…';badge.className='phase-badge phase-monster';}
+  else{badge.textContent='战斗结束';badge.className='phase-badge phase-end';}
+}
+function toggleSelect(id){
+  if(G.phase!=='player')return
+  const card=G.hand.find(c=>c.id===id);if(!card)return
+  if(card.num===7){const idx=G.freeSelected.indexOf(id);if(idx>=0)G.freeSelected.splice(idx,1);else G.freeSelected.push(id);}
+  else{const idx=G.selected.indexOf(id);if(idx>=0)G.selected.splice(idx,1);else{if(G.selected.length>=G.bpn){addLog(`已达BPN上限（${G.bpn}张）`,'warn');return;}G.selected.push(id);}}
+  renderHand();renderPreview();renderInfoBar();
+}
+function playCards(){
+  if(G.phase!=='player')return
+  const allSel=[...G.selected,...G.freeSelected]
+  if(allSel.length===0){addLog('请至少选择一张牌！','warn');return;}
+  const played=G.hand.filter(c=>allSel.includes(c.id))
+  G.hand=G.hand.filter(c=>!allSel.includes(c.id))
+  G.selected=[];G.freeSelected=[]
+  let baseAtk=0,effectLog=[]
+  G.shieldThisTurn=false;G.atkMulBonus=0;G.extraTurn=false;G.pendingClearHand=false
+  played.forEach(c=>{
+    if(G.monsterSpecial==='card3NoDmg'&&c.num===3){effectLog.push('【3】棱兽：无伤害，BPN+1');G.nextBpnDelta+=1;}
+    else{baseAtk+=c.num;applyCardEffect(c.num,effectLog);}
+  })
+  addLog(`▶ [${played.map(c=>c.num).join(',')}] 基础=${baseAtk}`,'important')
+  effectLog.forEach(e=>addLog('  ✦ '+e,'warn'))
+  let heroBonus=0
+  const hero=HEROES[G.heroId]
+  if(hero.getAtkBonus){const res=hero.getAtkBonus(played);heroBonus=res.bonus;if(res.count7>0){addLog(`  ✦ [${hero.skillCn}] ×${res.count7}个7，倍率+${res.bonus.toFixed(1)}`,'warn');const sa=document.getElementById('sk-active');sa.style.display='block';sa.textContent=`激活${res.count7}次，倍率+${res.bonus.toFixed(1)}`;}else document.getElementById('sk-active').style.display='none';}
+  const totalMul=1+G.atkMulBonus+heroBonus
+  let finalAtk=Math.round(baseAtk*totalMul)
+  if(totalMul!==1)addLog(`  倍率×${totalMul.toFixed(2)}→${finalAtk}`,'warn')
+  if(G.heroId==='indigo'){
+    if(G.mwTurnsLeft>0){let product=1,nums=[];played.forEach(c=>{if(!(G.monsterSpecial==='card3NoDmg'&&c.num===3)){product*=c.num;nums.push(c.num);}});finalAtk=Math.round(product*(1+G.atkMulBonus+heroBonus));addLog(`  ✦【魔武】${nums.join('×')}=${product}→${finalAtk}`,'mw');}
+    else{if(finalAtk>30){addLog('  ✦ 截断为30','warn');finalAtk=30;}if(finalAtk===30&&G.playerHP<70&&!G.mwUsedThisSession){G.mwTurnsLeft=2;G.mwUsedThisSession=true;G.mwJustTriggered=true;addLog('  ✦ ⚡【魔武】触发！持续2回合','mw');startMWParticles();showMWPopup();document.getElementById('sk-mw').style.display='block';document.getElementById('sk-mw').textContent=`⚡ 魔武激活（剩${G.mwTurnsLeft}回合）`;}}
+  }
+  if(G.pendingClearHand&&G.hand.length>0){addLog(`  ✦【9】清空${G.hand.length}张`,'warn');G.hand=[];}
+  if (G.monsterSpecial === 'bulwark') {
+    const mShield = G.monsterShield || 0;
+    if (mShield > 0) {
+      if (finalAtk < mShield) {
+        addLog(`🛡 垒魔护盾(${mShield})坚厚！攻击反弹，你受到${finalAtk}点伤害`, 'warn');
+        G.playerHP = Math.max(0, G.playerHP - finalAtk);
+        G.totalDmgTaken += finalAtk;
+        renderHpBars();
+        if (G.playerHP <= 0) { endGame('lose'); return; }
+        finalAtk = 0;
+      } else {
+        addLog(`💥 破盾一击！伤害倍率+2！`, 'good');
+        finalAtk = Math.round(finalAtk * 3);
+        G.monsterShield = 0;
+      }
+    }
+  }
+  if(G.monsterSpecial==='thread'&&finalAtk>20){addLog(`🧵 伤害超过20，茧免疫此次伤害，移除一层命丝`,'warn');G.threadStacks=Math.max(0,(G.threadStacks||0)-1);finalAtk=0;}
+  G.totalDmgDealt+=finalAtk
+  if(finalAtk>G.maxSingleDmg){G.maxSingleDmg=finalAtk;G.maxSingleDmgRound=G.round;}
+  const mhpBefore=G.monsterHP
+  G.monsterHP=Math.max(0,G.monsterHP-finalAtk)
+  if(finalAtk>0)addLog(`☠ 数字生命-${finalAtk}，剩余HP:${G.monsterHP}`,'important')
+  const monEl=document.getElementById('monster-panel')
+  if(finalAtk>0){spawnDmgFloat(finalAtk,'monster',monEl);flashHit(monEl);}
+  if(G.heroId==='indigo'&&G.mwTurnsLeft>0)triggerMWAttackEffect(monEl)
+  if (G.monsterSpecial === 'bulwark' && finalAtk > 0 && G.monsterHP > 0) {
+    const halfShield = Math.round(finalAtk * 0.5);
+    G.monsterShield = halfShield;
+    G.playerDamagedThisTurn = true;
+    addLog(`🛡 垒魔吸收冲击，凝结了 ${halfShield} 点护盾(50%)`, 'system');
+  }
+  renderHpBars()
+  if(G.monsterHP<=0){G.overkillDmg=Math.max(0,finalAtk-mhpBefore);endGame('win');return;}
+  if(G.extraTurn){addLog('  ✦【8】再次出手！','warn');G.extraTurn=false;renderAll();return;}
+  setTimeout(()=>monsterTurn(),700)
+}
+function applyCardEffect(num,log){
+  switch(num){
+    case 1:G.shieldThisTurn=true;log.push('【1】免伤');break;
+    case 2:G.atkMulBonus+=0.4;log.push('【2】倍率+0.4');break;
+    case 3:G.nextBpnDelta+=1;log.push('【3】下回合BPN+1');break;
+    case 4:G.playerHP=Math.min(G.playerMaxHP,G.playerHP+12);log.push(`【4】回血12（HP:${G.playerHP}）`);renderHpBars();break;
+    case 5:G.nextExtraDraw+=1;log.push('【5】下回合多摸1');break;
+    case 6:G.shields.push({amount:10,turnsLeft:2});log.push('【6】护盾+10（2回合）');break;
+    case 7:G.nextExtraDraw-=1;log.push('【7】不占BPN，下回合少摸1');break;
+    case 8:if(!G.extraTurn)G.extraTurn=true;G.injuryMulBonus+=1.25;log.push('【8】再出手，受伤倍率+1.25');break;
+    case 9:G.pendingClearHand=true;log.push('【9】清空手牌');break;
+  }
+}
+function skipTurn(){if(G.phase!=='player')return;G.selected=[];G.freeSelected=[];addLog('↷ 跳过出牌。','system');G.shieldThisTurn=false;G.atkMulBonus=0;setTimeout(()=>monsterTurn(),400);}
+function monsterTurn(){
+  setPhase('monster')
+  if(G.monsterSpecial==='thread'){
+    G.threadStacks=(G.threadStacks||0)+1
+    addLog(`🧵 茧附加命丝（${G.threadStacks}/4）`,'warn')
+    if(G.threadStacks>=4){addLog('💀 命丝达到4层，你立即死亡！','important');G.playerHP=0;renderHpBars();setTimeout(()=>endGame('lose'),500);return;}
+    renderStatusTags();setTimeout(()=>startNewRound(),800);return;
+  }
+  const baseDmg=G.monsterNextDmg,injMul=1+G.injuryMulBonus
+  let finalDmg=Math.round(baseDmg*injMul)
+  if(G.shieldThisTurn){addLog(`🛡 免疫${finalDmg}伤害！`,'good');}
+  else{
+    G.shields.sort((a,b)=>a.turnsLeft-b.turnsLeft)
+    let remaining=finalDmg,absorbed=0
+    for(let sh of G.shields){if(remaining<=0)break;const take=Math.min(sh.amount,remaining);sh.amount-=take;remaining-=take;absorbed+=take;}
+    G.shields=G.shields.filter(sh=>sh.amount>0)
+    if(absorbed>0)addLog(`🛡 护盾吸收${absorbed}，剩余${remaining}`,'good')
+    if(remaining>0){G.playerHP=Math.max(0,G.playerHP-remaining);G.totalDmgTaken+=remaining;addLog(`💥 数字生命攻击${finalDmg}${injMul!==1?' (受伤×'+injMul.toFixed(2)+')':''}，HP:${G.playerHP}`,'important');spawnDmgFloat(remaining,'player',document.getElementById('hero-panel'));flashHit(document.getElementById('hero-panel'));}
+  }
+  G.injuryMulBonus=0;renderHpBars()
+  if(G.playerHP<=0){setTimeout(()=>endGame('lose'),500);return;}
+  setTimeout(()=>startNewRound(),800)
+}
+function startNewRound(){
+  G.round++
+  if (G.monsterSpecial === 'bulwark') {
+    if (!G.playerDamagedThisTurn && G.monsterShield > 0) {
+      G.monsterShield = 0;
+      addLog(`🛡 垒魔的护盾因玩家未发起攻击而消散了...`, 'system');
+    }
+    G.playerDamagedThisTurn = false;
+  }
+  G.shields=G.shields.map(sh=>({...sh,turnsLeft:sh.turnsLeft-1})).filter(sh=>sh.turnsLeft>0&&sh.amount>0)
+  if(G.heroId==='indigo'&&G.mwTurnsLeft>0){
+    if(G.mwJustTriggered)G.mwJustTriggered=false;else G.mwTurnsLeft--;
+    if(G.mwTurnsLeft===0){G.mwUsedThisSession=false;document.getElementById('sk-mw').style.display='none';addLog('⚡ 魔武结束。','mw');stopMWParticles();}
+    else document.getElementById('sk-mw').textContent=`⚡ 魔武激活（剩${G.mwTurnsLeft}回合）`;
+  }
+  const toDraw=Math.max(0,(5-G.hand.length)+G.nextExtraDraw);G.nextExtraDraw=0
+  if(toDraw>0){G.hand=G.hand.concat(dealCards(toDraw));addLog(`── 第${G.round}回合，摸${toDraw}张。`,'system');}
+  else addLog(`── 第${G.round}回合。`,'system')
+  const newBpn=Math.max(1,G.bpnBase+G.nextBpnDelta)
+  if(G.nextBpnDelta!==0)addLog(`BPN${G.nextBpnDelta>0?'+':''}${G.nextBpnDelta}→${newBpn}`,'warn')
+  G.bpn=newBpn;G.nextBpnDelta=0;G.monsterNextDmg=G.monsterGetDmg()
+  G.shieldThisTurn=false;G.atkMulBonus=0;G.selected=[];G.freeSelected=[]
+  document.getElementById('sk-active').style.display='none'
+  renderAll();setPhase('player')
+}
+function calcScore(){
+  const TARGET_AVG=50,TARGET_RATIO=3
+  const survive=Math.min(100,(G.playerHP/G.playerMaxHP)*100*1.45)
+  const avgDmg=G.totalDmgDealt/Math.max(1,G.round)
+  const dmg=Math.min(100,(2/Math.PI)*Math.atan((avgDmg/TARGET_AVG)*2.5)*100)
+  const precise=Math.min(100,100*Math.exp(-1.5*(G.overkillDmg/G.monsterMaxHP)))
+  const eff=G.totalDmgTaken===0?100:Math.min(100,(2/Math.PI)*Math.atan((G.totalDmgDealt/G.totalDmgTaken)/TARGET_RATIO*2.0)*100)
+  const total=survive*0.30+dmg*0.25+precise*0.20+eff*0.25
+  const r=v=>Math.round(v*100)/100
+  return{survive:r(survive),dmg:r(dmg),precise:r(precise),eff:r(eff),total:r(total)}
+}
+function getGrade(s){if(s>=95)return'S+  完美无瑕';if(s>=80)return'S   出神入化';if(s>=70)return'A   实力强劲';if(s>=60)return'B   稳扎稳打';if(s>=45)return'C   尚需磨砺';return'D   继续努力';}
+function animCount(el,target,dur=1400,isFloat=true){const start=performance.now();function step(now){const p=Math.min((now-start)/dur,1),e=1-Math.pow(1-p,3);el.textContent=isFloat?(target*e).toFixed(2):Math.round(target*e);if(p<1)requestAnimationFrame(step);else el.textContent=isFloat?target.toFixed(2):target;}requestAnimationFrame(step);}
+
+/* ══ 保存数据 ══ */
+async function saveBattleRecord(result,score,sessionIndex){
+  if(!currentUser)return
+  const durationSec=battleStartTime?Math.round((Date.now()-battleStartTime)/1000):0
+  const avgDmg=G.round>0?Math.round((G.totalDmgDealt/G.round)*100)/100:0
+  try{
+    await sb.from('battle_records').insert({
+      user_id:currentUser.id,
+      session_id:HUNT.active?HUNT.sessionId:null,
+      session_index:sessionIndex||1,
+      mode:HUNT.active?'hunt':'single',
+      stage_id:G.stageId,hero_id:G.heroId,result,
+      score:score?score.total:0,
+      rounds_used:G.round,avg_damage:avgDmg,
+      final_hp:G.playerHP,max_hp:G.playerMaxHP,
+      total_dmg_dealt:G.totalDmgDealt,total_dmg_taken:G.totalDmgTaken,
+      max_single_dmg:G.maxSingleDmg,duration_seconds:durationSec,
+      overkill_dmg:G.overkillDmg,
+      hunt_total_score:(HUNT.active&&HUNT.scores.length>=3)?HUNT.scores.reduce((a,b)=>a+b,0):0
+    })
+  }catch(e){console.error('saveBattleRecord error:',e)}
+}
+async function saveProgress(result){
+  if(!currentUser)return
+  try{
+    const{data:ex}=await sb.from('game_progress').select('*').eq('user_id',currentUser.id).single()
+    const wins=(ex?ex.total_wins:0)+(result==='win'?1:0)
+    const losses=(ex?ex.total_losses:0)+(result==='lose'?1:0)
+    await sb.from('game_progress').upsert({user_id:currentUser.id,last_mode:HUNT.active?'hunt':'single',total_wins:wins,total_losses:losses,updated_at:new Date().toISOString()},{onConflict:'user_id'})
+  }catch(e){console.error('saveProgress error:',e)}
+}
+
+/* ══ 结算 ══ */
+async function endGame(result){
+  setPhase('end')
+  const score=result==='win'?calcScore():null
+  const tokenEarned=Math.floor((score?score.total:0)*0.2)
+  const sessionIdx=HUNT.active?HUNT.currentIndex+1:1
+  if(HUNT.active){HUNT.scores.push(score?score.total:0);HUNT.results.push(result);HUNT.heroIds.push(G.heroId);}
+  await saveBattleRecord(result,score,sessionIdx)
+  await saveProgress(result)
+  if(tokenEarned>0)await addToken(tokenEarned)
+  document.getElementById('overlay').classList.add('active')
+  if(result==='win'){
+    addLog('🏆 胜利！','good')
+    const hero=HEROES[G.heroId],monster=MONSTERS[G.stageId]
+    document.getElementById('rw-rounds').textContent=`${G.round}回合`
+    document.getElementById('rw-hp').textContent=`${G.playerHP}/${G.playerMaxHP}`
+    document.getElementById('rw-maxdmg').textContent=`${G.maxSingleDmg}（第${G.maxSingleDmgRound}回合）`
+    document.getElementById('rw-desc').innerHTML=`<span style="color:#7ecfff">${hero.enName}</span> 击败了 <span style="color:#ff6b8a">${monster.enName}</span>`
+    document.getElementById('rw-token-reward').textContent=tokenEarned>0?`◈ 获得 ${tokenEarned} TOKEN`:''
+    const btn=document.getElementById('btn-next-or-back')
+    if(HUNT.active&&HUNT.currentIndex<2)btn.textContent='继续下一场 →'
+    else if(HUNT.active&&HUNT.currentIndex>=2)btn.textContent='查看总结算'
+    else btn.textContent='↺ 返回'
+    const wb=document.getElementById('result-win-box')
+    wb.style.display='block'
+    document.getElementById('result-lose-box').style.display='none'
+    document.getElementById('hunt-result-box').style.display='none'
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      wb.classList.add('show')
+      setTimeout(()=>{
+        [{b:'bar-survive',v:'val-survive',val:score.survive},{b:'bar-dmg',v:'val-dmg',val:score.dmg},{b:'bar-precise',v:'val-precise',val:score.precise},{b:'bar-eff',v:'val-eff',val:score.eff}].forEach(d=>{document.getElementById(d.b).style.width=d.val+'%';animCount(document.getElementById(d.v),d.val,1200);})
+        animCount(document.getElementById('rw-total'),score.total,1600)
+        document.getElementById('rw-grade').textContent=getGrade(score.total)
+      },300)
+    }))
+    document.getElementById('save-tip-win').textContent=''
+  }else{
+    addLog('💀 失败…','important')
+    const hero=HEROES[G.heroId],monster=MONSTERS[G.stageId]
+    document.getElementById('rl-rounds').textContent=`${G.round}回合`
+    document.getElementById('rl-mhp').textContent=`${G.monsterHP}/${G.monsterMaxHP}`
+    document.getElementById('rl-hero').textContent=`${hero.enName}·${hero.cnName}`
+    document.getElementById('rl-monster').textContent=`${monster.enName}·${monster.cnName}`
+    document.getElementById('rl-token-reward').textContent=tokenEarned>0?`◈ 获得 ${tokenEarned} TOKEN`:''
+    const lb=document.getElementById('result-lose-box')
+    document.getElementById('result-win-box').style.display='none'
+    document.getElementById('hunt-result-box').style.display='none'
+    lb.style.display='block'
+    requestAnimationFrame(()=>requestAnimationFrame(()=>lb.classList.add('show')))
+    document.getElementById('save-tip-lose').textContent=''
+    if(HUNT.active)showHuntFinalResult()
+  }
+}
+
+function handleNextOrBack(){
+  if(HUNT.active){
+    if(HUNT.currentIndex<2){
+      HUNT.currentIndex++
+      document.getElementById('result-win-box').classList.remove('show')
+      setTimeout(()=>{
+        document.getElementById('overlay').classList.remove('active')
+        document.getElementById('result-win-box').style.display='none'
+        startNextHuntBattle()
+      },400)
+    }else showHuntFinalResult()
+  }else restartGame()
+}
+
+function showHuntFinalResult(){
+  ;['result-win-box','result-lose-box'].forEach(id=>{
+    document.getElementById(id).classList.remove('show')
+    document.getElementById(id).style.display='none'
+  })
+  const hb=document.getElementById('hunt-result-box')
+  hb.style.display='block'
+  const totalScore=HUNT.scores.reduce((a,b)=>a+b,0)
+  const tokenEarned=Math.floor(totalScore*0.2)
+  const list=document.getElementById('hr-rounds-list');list.innerHTML=''
+  HUNT.enemies.forEach((mid,i)=>{
+    const m=MONSTERS[mid]
+    const h=HEROES[HUNT.heroIds[i]]
+    const hasResult=i<HUNT.results.length
+    const row=document.createElement('div');row.className='hr-round-row'
+    row.innerHTML=`
+      <span class="hr-round-label">#${i+1} ${h?h.enName:'—'} vs ${m.enName}</span>
+      <span class="hr-round-score">${hasResult?(HUNT.scores[i]||0).toFixed(2):'—'}</span>
+      <span class="hr-round-result ${hasResult?HUNT.results[i]:'pending'}">${hasResult?(HUNT.results[i]==='win'?'胜利':'失败'):'未对战'}</span>
+    `
+    list.appendChild(row)
+  })
+  document.getElementById('hr-total-score').textContent=totalScore.toFixed(2)
+  document.getElementById('hr-token-reward').textContent=tokenEarned>0?`◈ 本次行动共获得 ${tokenEarned} TOKEN`:''
+  document.getElementById('save-tip-hunt').textContent=''
+  if(!document.getElementById('overlay').classList.contains('active'))
+    document.getElementById('overlay').classList.add('active')
+  requestAnimationFrame(()=>requestAnimationFrame(()=>hb.classList.add('show')))
+}
+
+function restartGame(){
+  stopMWParticles()
+  HUNT={active:false,enemies:[],currentIndex:0,sessionId:null,scores:[],results:[],heroIds:[],fled:false}
+  ;['result-win-box','result-lose-box','hunt-result-box'].forEach(id=>{
+    document.getElementById(id).classList.remove('show')
+    document.getElementById(id).style.display='none'
+  })
+  setTimeout(()=>{document.getElementById('overlay').classList.remove('active');navTo('page-mode')},350)
+}
+
+function fleeBattle(){
+  stopMWParticles()
+  if(HUNT.active){
+    HUNT.fled=true
+    if(HUNT.currentIndex>=HUNT.scores.length){
+      HUNT.scores.push(0);HUNT.results.push('flee');HUNT.heroIds.push(G.heroId||'orichen')
+    }
+    playHomeBGM()
+    _doNav('page-mode')
+    setTimeout(()=>{
+      navTo('page-mode',true)
+      showHuntFinalResult()
+    },100)
+  }else{
+    playHomeBGM();navTo('page-mode')
+  }
+}
+
+/* ══ 渲染 ══ */
+function renderAll(){sortHand();renderHpBars();renderHand();renderPreview();renderInfoBar();renderStatusTags();document.getElementById('round-text').textContent=`第 ${G.round} 回合`;}
+function renderHpBars(){
+  const pp=Math.max(0,(G.playerHP/G.playerMaxHP)*100),mp=Math.max(0,(G.monsterHP/G.monsterMaxHP)*100)
+  document.getElementById('player-hp-bar').style.width=pp+'%'
+  document.getElementById('player-hp-text').textContent=`HP: ${G.playerHP}/${G.playerMaxHP}`
+  document.getElementById('monster-hp-bar').style.width=mp+'%'
+  document.getElementById('monster-hp-text').textContent=`HP: ${G.monsterHP}/${G.monsterMaxHP}`
+}
+function renderHand(){
+  const container=document.getElementById('hand-cards');container.innerHTML=''
+  const allSel=[...G.selected,...G.freeSelected],isMW=G.heroId==='indigo'&&G.mwTurnsLeft>0
+  G.hand.forEach(card=>{
+    const isSelected=allSel.includes(card.id),isDisabled=!isSelected&&card.num!==7&&G.selected.length>=G.bpn
+    const div=document.createElement('div')
+    let cls='card'
+    if(card.num===7)cls+=' card7'
+    if(isSelected)cls+=' selected'
+    if(isDisabled)cls+=' disabled'
+    if(isMW)cls+=' mw-border'
+    div.className=cls
+    div.innerHTML=`<div class="card-num">${card.num}</div><div class="card-eff">${CARD_META[card.num].label}</div>`
+    div.onclick=()=>toggleSelect(card.id)
+    container.appendChild(div)
+  })
+}
+function renderPreview(){
+  const el=document.getElementById('play-preview')
+  const allSel=[...G.selected,...G.freeSelected]
+  if(allSel.length===0){el.innerHTML=`<span style="color:rgba(200,169,110,0.45)">出牌预览：尚未选择</span>`;return;}
+  const played=G.hand.filter(c=>allSel.includes(c.id))
+  let baseAtk=0,atkBonus=0,tags=[]
+  const hero=HEROES[G.heroId]
+  played.forEach(c=>{
+    if(G.monsterSpecial==='card3NoDmg'&&c.num===3)tags.push('3(免伤)');else baseAtk+=c.num
+    if(c.num===2){atkBonus+=0.4;tags.push('倍率+0.4');}
+    if(c.num===1)tags.push('🛡免伤')
+    if(c.num===3&&G.monsterSpecial!=='card3NoDmg')tags.push('BPN+1')
+    if(c.num===4)tags.push('回血12')
+    if(c.num===5)tags.push('多摸1')
+    if(c.num===6)tags.push('护盾+10')
+    if(c.num===8)tags.push('⚡再出手')
+    if(c.num===9)tags.push('清空')
+  })
+  let heroBonus=0
+  if(hero&&hero.getAtkBonus)heroBonus=hero.getAtkBonus(played).bonus
+  const totalMul=1+atkBonus+heroBonus
+  let finalAtk
+  if(G.heroId==='indigo'&&G.mwTurnsLeft>0){let product=1;played.forEach(c=>{if(!(G.monsterSpecial==='card3NoDmg'&&c.num===3))product*=c.num;});finalAtk=Math.round(product*totalMul);tags.push('⚡魔武乘算');}
+  else{finalAtk=Math.round(baseAtk*totalMul);if(G.heroId==='indigo'&&finalAtk>30){finalAtk=30;tags.push('上限30');}}
+  let html=`出牌预览：<span class="preview-dmg">⚔ ${finalAtk}</span>`
+  if(totalMul!==1&&baseAtk>0)html+=`<span style="color:rgba(200,169,110,0.52);font-size:0.76rem">(${baseAtk}×${totalMul.toFixed(2)})</span>`
+  tags.forEach(t=>{html+=`<span class="preview-tag">${t}</span>`;})
+  el.innerHTML=html
+}
+function renderInfoBar(){document.getElementById('bpn-disp').textContent=G.bpn;document.getElementById('sel-disp').textContent=G.selected.length;document.getElementById('hand-disp').textContent=G.hand.length;document.getElementById('bpn-label').textContent=G.bpn;document.getElementById('card7-tip').style.display=G.hand.some(c=>c.num===7)?'block':'none';}
+function renderStatusTags(){
+  const pt=document.getElementById('player-tags');pt.innerHTML=''
+  const sh2=G.shields.filter(s=>s.turnsLeft===2).reduce((a,s)=>a+s.amount,0)
+  const sh1=G.shields.filter(s=>s.turnsLeft===1).reduce((a,s)=>a+s.amount,0)
+  if(sh2>0)pt.innerHTML+=`<span class="s-tag shield2">🛡${sh2}(2)</span>`
+  if(sh1>0)pt.innerHTML+=`<span class="s-tag shield1">🛡${sh1}(1)</span>`
+  if(G.mwTurnsLeft>0)pt.innerHTML+=`<span class="s-tag mw">⚡魔武(${G.mwTurnsLeft})</span>`
+  if(G.threadStacks>0)pt.innerHTML+=`<span class="s-tag thread">🧵命丝(${G.threadStacks}/4)</span>`
+  if(G.nextBpnDelta>0)pt.innerHTML+=`<span class="s-tag">BPN+${G.nextBpnDelta}</span>`
+  if(G.nextBpnDelta<0)pt.innerHTML+=`<span class="s-tag bad">BPN${G.nextBpnDelta}</span>`
+  if(G.nextExtraDraw>0)pt.innerHTML+=`<span class="s-tag">多摸${G.nextExtraDraw}</span>`
+  if(G.nextExtraDraw<0)pt.innerHTML+=`<span class="s-tag bad">少摸${Math.abs(G.nextExtraDraw)}</span>`
+  if(G.injuryMulBonus>0)pt.innerHTML+=`<span class="s-tag bad">受伤×${(1+G.injuryMulBonus).toFixed(2)}</span>`
+  const mt=document.getElementById('monster-tags');mt.innerHTML=''
+  if(G.monsterSpecial!=='thread')mt.innerHTML+=`<span class="s-tag bad">即将:${G.monsterNextDmg}</span>`
+  if(G.monsterShield>0)mt.innerHTML+=`<span class="s-tag shield2">🛡${G.monsterShield}</span>`
+  if(G.monsterSpecial==='thread')mt.innerHTML+=`<span class="s-tag thread">命丝模式</span>`
+}
+function addLog(text,type=''){const box=document.getElementById('log-entries');const p=document.createElement('p');p.className='log-entry'+(type?' '+type:'');p.textContent=text;box.appendChild(p);box.parentElement.scrollTop=box.parentElement.scrollHeight;}
+function clearLog(){document.getElementById('log-entries').innerHTML='';}
+function spawnDmgFloat(dmg,target,refEl){const rect=refEl.getBoundingClientRect();const span=document.createElement('div');span.className=`dmg-float ${target}`;span.textContent=`-${dmg}`;span.style.left=(rect.left+rect.width/2-28)+'px';span.style.top=(rect.top+18)+'px';document.body.appendChild(span);span.addEventListener('animationend',()=>span.remove());}
+function flashHit(el){el.classList.remove('hit-anim');void el.offsetWidth;el.classList.add('hit-anim');el.addEventListener('animationend',()=>el.classList.remove('hit-anim'),{once:true});}
+
+/* ══ 魔武 ══ */
+let mwAnim=null,mwParticles=[]
+function startMWParticles(){const canvas=document.getElementById('mw-canvas');canvas.width=window.innerWidth;canvas.height=window.innerHeight;canvas.style.display='block';const ctx=canvas.getContext('2d');mwParticles=[];function spawn(){const ha=document.querySelector('.hand-area');if(!ha)return;const r=ha.getBoundingClientRect();mwParticles.push({x:r.left+Math.random()*r.width,y:r.bottom-Math.random()*r.height*0.5,vx:(Math.random()-0.5)*1.8,vy:-(Math.random()*2.2+0.6),life:1,decay:0.012+Math.random()*0.01,size:Math.random()*3+1,color:Math.random()>0.5?'#4d9fff':'#7eb8ff'});}function loop(){ctx.clearRect(0,0,canvas.width,canvas.height);if(Math.random()<0.45)spawn();mwParticles=mwParticles.filter(p=>p.life>0);mwParticles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;ctx.save();ctx.globalAlpha=Math.max(0,p.life);ctx.shadowBlur=10;ctx.shadowColor=p.color;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();ctx.restore();});mwAnim=requestAnimationFrame(loop);}loop();}
+function stopMWParticles(){if(mwAnim){cancelAnimationFrame(mwAnim);mwAnim=null;}mwParticles=[];const c=document.getElementById('mw-canvas');if(c)c.style.display='none';}
+function showMWPopup(){const popup=document.getElementById('mw-popup');popup.classList.remove('show');void popup.offsetWidth;popup.classList.add('show');popup.addEventListener('animationend',()=>popup.classList.remove('show'),{once:true});}
+function triggerMWAttackEffect(targetEl){const flash=document.createElement('div');flash.className='mw-attack-flash';document.body.appendChild(flash);flash.addEventListener('animationend',()=>flash.remove());const rect=targetEl.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;for(let i=0;i<12;i++){const angle=(360/12)*i,length=70+Math.random()*60,line=document.createElement('div');line.className='mw-strike';line.style.cssText=`left:${cx-1}px;top:${cy}px;height:${length}px;--a:${angle}deg;animation-delay:${i*0.018}s;`;document.body.appendChild(line);line.addEventListener('animationend',()=>line.remove());}}
+
+/* ══ 启动 ══ */
+window.addEventListener('DOMContentLoaded',()=>{initAuth();initMusic()})
+</script>
+</body>
+</html>
